@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sistema de inventario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+/* =====================================================================
+   VARIABLES Y BASE
+   ===================================================================== */
+:root{
+  --navy:#0F2342;
+  --navy-700:#1A3560;
+  --navy-900:#0A1830;
+  --blue:#1F5FE0;
+  --blue-700:#1A4FC0;
+  --blue-50:#EAF1FE;
+  --bg:#F5F7FA;
+  --card:#FFFFFF;
+  --line:#DDE3EC;
+  --line-strong:#C5CEDB;
+  --ink:#162033;
+  --muted:#5B6A80;
+  --green:#15803D;  --green-bg:#E5F5EA;
+  --amber:#B45309;  --amber-bg:#FEF1DC;
+  --red:#B91C1C;    --red-bg:#FCE9E9;
+  --radius:8px;
+  --shadow:0 1px 2px rgba(15,35,66,.06), 0 1px 3px rgba(15,35,66,.05);
+  --shadow-lg:0 10px 30px rgba(10,24,48,.25);
+  --font:'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --topbar-h:56px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; font-family:var(--font); font-size:14.5px; line-height:1.5;
+  color:var(--ink); background:var(--bg);
+}
+h1,h2,h3{margin:0; color:var(--navy); line-height:1.25}
+h1{font-size:22px; font-weight:700; letter-spacing:-.01em}
+h2{font-size:16px; font-weight:600}
+h3{font-size:16px; font-weight:600}
+p{margin:0}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
+.mono{font-variant-numeric:tabular-nums; letter-spacing:.01em}
+.muted{color:var(--muted)}
+
+/* =====================================================================
+   BOTONES
+   ===================================================================== */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:42px; padding:0 18px; border-radius:var(--radius);
+  font-size:14px; font-weight:600; cursor:pointer; border:1px solid transparent;
+  transition:background .12s, border-color .12s, box-shadow .12s;
+  white-space:nowrap;
+}
+.btn-primary{background:var(--blue); color:#fff}
+.btn-primary:hover{background:var(--blue-700)}
+.btn-secondary{background:#fff; color:var(--navy); border-color:var(--line-strong)}
+.btn-secondary:hover{background:#F0F3F8}
+.btn-danger{background:var(--red); color:#fff}
+.btn-danger:hover{background:#991B1B}
+.btn-ghost{background:transparent; color:#fff; border-color:rgba(255,255,255,.28); min-height:36px; padding:0 14px}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn[disabled]{opacity:.55; cursor:not-allowed}
+.btn.loading{position:relative; color:transparent !important}
+.btn.loading::after{
+  content:""; position:absolute; width:16px; height:16px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:spin .7s linear infinite;
+}
+.btn-secondary.loading::after{border-color:rgba(15,35,66,.25); border-top-color:var(--navy)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-sm{min-height:34px; padding:0 12px; font-size:13px}
+.icon-btn{
+  width:36px; height:36px; border-radius:var(--radius); border:1px solid var(--line);
+  background:#fff; font-size:20px; line-height:1; cursor:pointer; color:var(--muted);
+}
+.icon-btn:hover{background:#F0F3F8}
+
+/* =====================================================================
+   FORMULARIOS
+   ===================================================================== */
+fieldset{border:0; padding:0; margin:0; min-width:0}
+.form-grid{display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:18px 16px}
+.field{grid-column:span 3; display:flex; flex-direction:column; gap:6px; min-width:0}
+.field.third{grid-column:span 2}
+.field.full{grid-column:1 / -1}
+.field label{font-size:12.5px; font-weight:600; color:var(--navy)}
+.field label .opt{font-weight:400; color:var(--muted)}
+.input, select.input, textarea.input, .pick-btn{
+  width:100%; min-height:42px; padding:9px 12px; font-family:inherit; font-size:16px;
+  color:var(--ink); background:#fff; border:1px solid var(--line-strong);
+  border-radius:var(--radius); transition:border-color .12s, box-shadow .12s;
+}
+@media (min-width:821px){
+  .input, select.input, textarea.input, .pick-btn{font-size:14.5px}
+}
+textarea.input{min-height:84px; resize:vertical}
+.input::placeholder{color:#8A96A8}
+.input:hover{border-color:#9FB0C8}
+.input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(31,95,224,.18)}
+.input[readonly]{background:#F1F4F9; color:var(--muted); cursor:default}
+select.input{
+  appearance:none; padding-right:36px; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235B6A80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center;
+}
+.pick-btn{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  text-align:left; cursor:pointer;
+}
+.pick-btn .ph{color:#8A96A8}
+.pick-btn:hover{border-color:#9FB0C8}
+.pick-btn:focus-visible{border-color:var(--blue); box-shadow:0 0 0 3px rgba(31,95,224,.18); outline:none}
+.field .hint{font-size:12px; color:var(--muted)}
+.field .err{font-size:12.5px; color:var(--red); font-weight:500}
+.field.invalid .input, .field.invalid .pick-btn{border-color:var(--red)}
+.field.invalid .input:focus{box-shadow:0 0 0 3px rgba(185,28,28,.15)}
+input[type=file].input{padding:8px 10px; font-size:13.5px}
+.form-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:22px; padding-top:18px; border-top:1px solid var(--line)}
+.form-msg{
+  margin-bottom:16px; padding:11px 14px; border-radius:var(--radius);
+  font-size:13.5px; font-weight:500; border:1px solid; display:flex; gap:10px;
+}
+.form-msg.err{background:var(--red-bg); color:var(--red); border-color:#F3C3C3}
+.form-msg.ok{background:var(--green-bg); color:var(--green); border-color:#BBE3C7}
+.notice{
+  margin-bottom:16px; padding:11px 14px; border-radius:var(--radius);
+  background:var(--amber-bg); color:#7A3B06; border:1px solid #F6D9A8; font-size:13.5px;
+}
+.info-box{
+  grid-column:1 / -1; padding:10px 14px; border-radius:var(--radius);
+  background:var(--blue-50); color:var(--navy); font-size:13px; border:1px solid #CFE0FB;
+}
+.info-box.warn{background:var(--red-bg); border-color:#F3C3C3; color:var(--red)}
+.info-box strong{font-weight:600}
+
+/* =====================================================================
+   TARJETAS Y ENCABEZADOS DE PÁGINA
+   ===================================================================== */
+.card{background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow)}
+.card-body{padding:24px}
+.page-head{margin-bottom:20px}
+.page-head p{color:var(--muted); margin-top:4px}
+
+/* =====================================================================
+   PANTALLA DE ACCESO
+   ===================================================================== */
+.auth{min-height:100vh; display:grid; grid-template-columns:minmax(0,5fr) minmax(0,6fr)}
+.auth-aside{
+  background:linear-gradient(160deg, var(--navy-900), var(--navy) 60%, var(--navy-700));
+  color:#fff; padding:48px; display:flex; flex-direction:column; justify-content:space-between;
+}
+.brand{display:flex; align-items:center; gap:12px; font-weight:700; font-size:17px; letter-spacing:-.01em}
+.brand-mark{
+  width:36px; height:36px; border-radius:9px; background:var(--blue);
+  display:grid; place-items:center; flex:none;
+}
+.brand-mark svg{width:20px; height:20px; stroke:#fff}
+.auth-aside h2{color:#fff; font-size:28px; font-weight:700; letter-spacing:-.02em; max-width:420px; line-height:1.2}
+.auth-aside ul{list-style:none; padding:0; margin:24px 0 0; display:grid; gap:12px; color:#C9D6EC; font-size:14.5px}
+.auth-aside li{display:flex; gap:10px; align-items:flex-start}
+.auth-aside li::before{content:""; width:6px; height:6px; border-radius:50%; background:#5B8DEF; margin-top:8px; flex:none}
+.auth-aside small{color:#8EA3C4}
+.auth-main{display:grid; place-items:center; padding:32px 20px}
+.auth-card{width:100%; max-width:420px}
+.auth-card h1{margin-bottom:6px}
+.auth-card .sub{color:var(--muted); margin-bottom:22px}
+.tabs{display:grid; grid-template-columns:1fr 1fr; background:#E8EDF4; border-radius:var(--radius); padding:4px; margin-bottom:22px}
+.tabs button{
+  border:0; background:transparent; min-height:38px; border-radius:6px; cursor:pointer;
+  font-size:14px; font-weight:600; color:var(--muted);
+}
+.tabs button[aria-selected=true]{background:#fff; color:var(--navy); box-shadow:var(--shadow)}
+.auth-card form{display:grid; gap:16px}
+.auth-card .field{grid-column:auto}
+.auth-note{font-size:12.5px; color:var(--muted); background:#EEF2F8; padding:10px 12px; border-radius:var(--radius)}
+
+/* =====================================================================
+   BARRA SUPERIOR
+   ===================================================================== */
+.topbar{
+  position:sticky; top:0; z-index:30; height:var(--topbar-h);
+  background:var(--navy); color:#fff; display:flex; align-items:center; gap:24px; padding:0 20px;
+  box-shadow:0 1px 0 rgba(255,255,255,.06), 0 2px 8px rgba(10,24,48,.25);
+}
+.topbar .brand{font-size:15px}
+.topbar .brand-mark{width:30px; height:30px}
+.topbar .brand-mark svg{width:17px; height:17px}
+.topnav{display:flex; align-items:stretch; height:100%; gap:4px}
+.topnav button{
+  background:transparent; border:0; color:#B9C7DE; font-size:14px; font-weight:500;
+  padding:0 14px; cursor:pointer; position:relative; height:100%;
+}
+.topnav button:hover{color:#fff}
+.topnav button[aria-current=page]{color:#fff; font-weight:600}
+.topnav button[aria-current=page]::after{
+  content:""; position:absolute; left:10px; right:10px; bottom:0; height:3px;
+  background:#5B8DEF; border-radius:3px 3px 0 0;
+}
+.userbox{margin-left:auto; display:flex; align-items:center; gap:12px}
+.avatar{
+  width:32px; height:32px; border-radius:50%; background:var(--blue); color:#fff;
+  display:grid; place-items:center; font-weight:700; font-size:12.5px; flex:none;
+}
+.user-meta{display:flex; flex-direction:column; line-height:1.2}
+.user-meta strong{font-size:13px; font-weight:600; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.user-meta small{font-size:11.5px; color:#9FB2D1}
+
+/* =====================================================================
+   VISTAS Y BARRA LATERAL
+   ===================================================================== */
+.view-pad{padding:28px 24px; max-width:1100px; margin:0 auto}
+.layout{display:grid; grid-template-columns:236px minmax(0,1fr); min-height:calc(100vh - var(--topbar-h))}
+.sidebar{
+  background:var(--navy); padding:20px 12px; position:sticky; top:var(--topbar-h);
+  height:calc(100vh - var(--topbar-h)); align-self:start;
+}
+.sidebar .side-title{
+  color:#7F95B8; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  padding:0 12px 10px;
+}
+.side-btn{
+  width:100%; display:flex; align-items:center; gap:12px; text-align:left;
+  background:transparent; border:0; color:#C4D1E6; font-size:14.5px; font-weight:500;
+  padding:11px 12px; border-radius:var(--radius); cursor:pointer; margin-bottom:2px;
+}
+.side-btn svg{width:19px; height:19px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.side-btn:hover{background:var(--navy-700); color:#fff}
+.side-btn[aria-current=page]{background:var(--blue); color:#fff; font-weight:600}
+.content{padding:28px 28px 40px; min-width:0}
+.content > .section{max-width:1000px}
+
+/* Placeholder del catálogo */
+.placeholder{
+  text-align:center; padding:56px 24px; color:var(--muted);
+}
+.placeholder .ph-icon{
+  width:56px; height:56px; border-radius:14px; background:var(--blue-50); color:var(--blue);
+  display:grid; place-items:center; margin:0 auto 16px;
+}
+.placeholder .ph-icon svg{width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.placeholder h2{margin-bottom:6px; font-size:18px}
+
+/* =====================================================================
+   CONSULTAS
+   ===================================================================== */
+.seg{display:inline-flex; background:#E8EDF4; border-radius:var(--radius); padding:3px; gap:2px; max-width:100%}
+.seg button{
+  border:0; background:transparent; padding:0 14px; min-height:36px; border-radius:6px; cursor:pointer;
+  font-size:13.5px; font-weight:600; color:var(--muted); white-space:nowrap;
+}
+.seg button:hover{color:var(--navy)}
+.seg button[aria-pressed=true]{background:var(--blue); color:#fff; box-shadow:var(--shadow)}
+.cons-switch{margin-bottom:18px; overflow-x:auto}
+.toolbar{padding:16px; margin-bottom:16px}
+.search-row{display:flex; gap:10px}
+.search-wrap{position:relative; flex:1; min-width:0}
+.search-wrap svg{
+  position:absolute; left:13px; top:50%; transform:translateY(-50%); width:18px; height:18px;
+  fill:none; stroke:var(--muted); stroke-width:2; stroke-linecap:round; pointer-events:none;
+}
+.search-wrap .input{padding-left:40px; min-height:46px}
+.filters{display:flex; flex-wrap:wrap; gap:14px 18px; align-items:flex-end; margin-top:14px}
+.filters .field{grid-column:auto; flex:1 1 170px; max-width:260px}
+.filters .field.grow{max-width:none}
+.filters .seg-field{display:flex; flex-direction:column; gap:6px}
+.filters .seg-field > span{font-size:12.5px; font-weight:600; color:var(--navy)}
+
+.stats{display:grid; gap:12px; margin-bottom:16px}
+.stats.s3{grid-template-columns:repeat(3, minmax(0,1fr))}
+.stats.s4{grid-template-columns:repeat(4, minmax(0,1fr))}
+.stat{
+  background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px;
+  box-shadow:var(--shadow); border-left:4px solid var(--navy);
+}
+.stat .stat-label{display:block; font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em}
+.stat .stat-value{display:block; font-size:28px; font-weight:700; color:var(--navy); line-height:1.15; margin-top:2px; font-variant-numeric:tabular-nums}
+.stat.ok{border-left-color:var(--green)} .stat.ok .stat-value{color:var(--green)}
+.stat.out{border-left-color:var(--red)} .stat.out .stat-value{color:var(--red)}
+.stat.adj{border-left-color:#D97706} .stat.adj .stat-value{color:var(--amber)}
+
+.result-meta{display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 2px 8px; font-size:13px; color:var(--muted)}
+
+/* Tablas */
+.table-wrap{overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow)}
+table.tbl{width:100%; border-collapse:collapse; font-size:14px}
+.tbl thead th{
+  background:var(--navy); color:#fff; font-weight:600; font-size:12.5px; letter-spacing:.03em;
+  text-align:left; padding:12px 16px; white-space:nowrap; position:sticky; top:0;
+}
+.tbl thead th.num, .tbl td.num{text-align:right}
+.tbl tbody td{padding:12px 16px; border-bottom:1px solid var(--line); vertical-align:middle}
+.tbl tbody tr:nth-child(even){background:#F7F9FC}
+.tbl tbody tr:hover{background:var(--blue-50)}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl .sub{display:block; font-size:12px; color:var(--muted)}
+.tbl .stockcell{display:inline-flex; align-items:center; gap:10px; justify-content:flex-end}
+.tbl td.empty{text-align:center; padding:40px 16px; color:var(--muted)}
+.qty-pos{color:var(--green); font-weight:600}
+.qty-neg{color:var(--red); font-weight:600}
+
+.badge{
+  display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:999px;
+  font-size:12px; font-weight:600; white-space:nowrap;
+}
+.badge::before{content:""; width:6px; height:6px; border-radius:50%; background:currentColor}
+.badge.ok,.badge.t-entrada{background:var(--green-bg); color:var(--green)}
+.badge.low,.badge.t-ajuste{background:var(--amber-bg); color:var(--amber)}
+.badge.out,.badge.t-salida{background:var(--red-bg); color:var(--red)}
+.badge.neutral{background:#E8EDF4; color:var(--muted)}
+
+/* =====================================================================
+   DIÁLOGOS Y NOTIFICACIONES
+   ===================================================================== */
+dialog{
+  border:0; border-radius:12px; padding:0; width:calc(100% - 32px); max-width:480px;
+  box-shadow:var(--shadow-lg); color:var(--ink);
+}
+dialog::backdrop{background:rgba(10,24,48,.55)}
+dialog form{margin:0}
+.dlg-body{padding:22px 24px 8px}
+.dlg-body h3{margin-bottom:10px}
+.dlg-body .dlg-text{color:var(--muted); font-size:14px}
+.dlg-body .dlg-text strong{color:var(--ink)}
+.dlg-body ul{margin:10px 0 0; padding-left:18px}
+.dlg-actions{display:flex; justify-content:flex-end; gap:10px; padding:16px 24px 20px}
+#dlgPicker{max-width:560px}
+.dlg-head{display:flex; justify-content:space-between; align-items:center; padding:18px 20px 10px}
+.dlg-search{padding:0 20px 12px}
+.dlg-search .input{min-height:46px}
+#pkList{list-style:none; margin:0; padding:0 8px 10px; max-height:min(52vh, 420px); overflow-y:auto}
+.pk-item{
+  width:100%; display:flex; justify-content:space-between; align-items:center; gap:12px;
+  background:transparent; border:0; border-radius:var(--radius); padding:10px 12px; cursor:pointer; text-align:left;
+  font-family:inherit; color:var(--ink);
+}
+.pk-item:hover, .pk-item:focus-visible{background:var(--blue-50)}
+.pk-main{display:flex; flex-direction:column; min-width:0}
+.pk-main strong{font-weight:600; font-size:14.5px}
+.pk-main small{color:var(--muted); font-size:12.5px}
+#pkList .empty{padding:28px 12px; text-align:center; color:var(--muted)}
+.pk-foot{padding:8px 20px 14px; font-size:12px; color:var(--muted); border-top:1px solid var(--line)}
+
+#toasts{position:fixed; z-index:100; right:16px; bottom:16px; display:grid; gap:10px; max-width:min(380px, calc(100vw - 32px))}
+.toast{
+  background:#fff; border:1px solid var(--line); border-left:4px solid var(--green);
+  border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:12px 14px; font-size:13.5px; font-weight:500;
+  animation:slideIn .18s ease-out;
+}
+.toast.err{border-left-color:var(--red)}
+@keyframes slideIn{from{transform:translateY(8px); opacity:0} to{transform:none; opacity:1}}
+
+/* =====================================================================
+   ADAPTABLE (TELÉFONOS Y TABLETS)
+   ===================================================================== */
+@media (max-width:1000px){
+  .stats.s4{grid-template-columns:repeat(2, minmax(0,1fr))}
+}
+@media (max-width:820px){
+  .auth{grid-template-columns:1fr}
+  .auth-aside{display:none}
+  .topbar{padding:0 12px; gap:10px}
+  .topbar .brand span.brand-text{display:none}
+  .topnav button{padding:0 10px; font-size:13.5px}
+  .view-pad{padding:20px 14px}
+
+  .layout{grid-template-columns:1fr}
+  .sidebar{
+    position:fixed; z-index:25; left:0; right:0; bottom:0; top:auto; height:auto;
+    display:flex; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); gap:4px;
+    box-shadow:0 -2px 10px rgba(10,24,48,.25);
+  }
+  .sidebar .side-title{display:none}
+  .side-btn{
+    flex:1; flex-direction:column; justify-content:center; gap:3px; padding:8px 4px;
+    font-size:11.5px; margin:0; text-align:center;
+  }
+  .content{padding:20px 14px calc(96px + env(safe-area-inset-bottom))}
+  .card-body{padding:18px 16px}
+  h1{font-size:20px}
+}
+@media (max-width:640px){
+  .user-meta{display:none}
+  .btn-ghost.logout{padding:0 10px}
+  .form-grid{grid-template-columns:1fr; gap:16px}
+  .field, .field.third, .field.full{grid-column:1 / -1}
+  .form-actions{flex-direction:column-reverse}
+  .form-actions .btn{width:100%}
+  .stats.s3{gap:8px}
+  .stats.s3 .stat{padding:10px 10px}
+  .stats.s3 .stat-label{font-size:10.5px; letter-spacing:.02em}
+  .stats.s3 .stat-value{font-size:22px}
+  .stat{padding:12px 12px}
+  .stat .stat-value{font-size:24px}
+  .search-row{flex-direction:column}
+  .search-row .btn{width:100%}
+  .filters .field{max-width:none; flex-basis:100%}
+  .toolbar{padding:14px}
+
+  /* Las tablas se convierten en tarjetas */
+  .table-wrap{background:transparent; border:0; box-shadow:none; overflow:visible}
+  table.tbl, .tbl tbody, .tbl tr, .tbl td{display:block; width:100%}
+  .tbl thead{display:none}
+  .tbl tbody tr{
+    background:#fff !important; border:1px solid var(--line); border-radius:10px;
+    box-shadow:var(--shadow); margin-bottom:10px; padding:6px 0;
+  }
+  .tbl tbody td{
+    display:flex; justify-content:space-between; align-items:center; gap:16px;
+    border-bottom:1px solid #EDF1F6; padding:9px 14px; text-align:right !important;
+  }
+  .tbl tbody td:last-child{border-bottom:0}
+  .tbl tbody td::before{
+    content:attr(data-label); color:var(--muted); font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.03em; text-align:left; flex:none;
+  }
+  .tbl td.empty{display:block; background:#fff; border:1px solid var(--line); border-radius:10px; text-align:center !important}
+  .tbl td.empty::before{display:none}
+  #toasts{left:16px; right:16px; bottom:calc(88px + env(safe-area-inset-bottom)); max-width:none}
+  dialog{max-width:none}
+  #dlgPicker{margin:auto auto 0; border-radius:14px 14px 0 0; max-height:88vh}
+  #pkList{max-height:56vh}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important; transition:none !important}
+}
+</style>
+</head>
+
+<body>
+<noscript><p style="padding:24px">Este sistema necesita JavaScript para funcionar.</p></noscript>
+
+<!-- =====================================================================
+     PANTALLA DE ACCESO
+     ===================================================================== -->
+<section id="screenAuth" class="auth" hidden>
+  <aside class="auth-aside">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
+      <span>Inventario</span>
+    </div>
+    <div>
+      <h2>Control de inventario claro y confiable.</h2>
+      <ul>
+        <li>Encuentra cualquier producto en segundos.</li>
+        <li>Registra entradas, salidas y ajustes con trazabilidad.</li>
+        <li>Facturas y documentos siempre vinculados a su movimiento.</li>
+      </ul>
+    </div>
+    <small>Acceso solo para personal autorizado.</small>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <h1>Bienvenido</h1>
+      <p class="sub">Inicia sesión o crea tu cuenta para continuar.</p>
+
+      <div id="cfgWarn" class="form-msg err" hidden></div>
+
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tabLogin" aria-selected="true">Iniciar sesión</button>
+        <button type="button" role="tab" id="tabRegister" aria-selected="false">Crear cuenta</button>
+      </div>
+
+      <div id="authMsg" class="form-msg" role="alert" hidden></div>
+
+      <form id="formLogin" novalidate>
+        <div class="field">
+          <label for="loginEmail">Correo electrónico</label>
+          <input class="input" id="loginEmail" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.com">
+        </div>
+        <div class="field">
+          <label for="loginPass">Contraseña</label>
+          <input class="input" id="loginPass" type="password" autocomplete="current-password" placeholder="Tu contraseña">
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnLogin">Iniciar sesión</button>
+      </form>
+
+      <form id="formRegister" novalidate hidden>
+        <div class="field">
+          <label for="regName">Nombre completo</label>
+          <input class="input" id="regName" type="text" autocomplete="name" placeholder="Nombre y apellido">
+        </div>
+        <div class="field">
+          <label for="regEmail">Correo electrónico</label>
+          <input class="input" id="regEmail" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.com">
+        </div>
+        <div class="field">
+          <label for="regPass">Contraseña</label>
+          <input class="input" id="regPass" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+        </div>
+        <div class="field">
+          <label for="regPass2">Confirmar contraseña</label>
+          <input class="input" id="regPass2" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
+        </div>
+        <p class="auth-note">Las cuentas nuevas tienen acceso de solo lectura hasta que un administrador les asigne un rol.</p>
+        <button class="btn btn-primary" type="submit" id="btnRegister">Crear cuenta</button>
+      </form>
+    </div>
+  </main>
+</section>
+
+<!-- =====================================================================
+     APLICACIÓN
+     ===================================================================== -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
+      <span class="brand-text">Inventario</span>
+    </div>
+    <nav class="topnav" aria-label="Secciones principales">
+      <button type="button" data-view="catalogo">Catálogo</button>
+      <button type="button" data-view="sistema" id="navSistema" hidden>Sistema de inventario</button>
+    </nav>
+    <div class="userbox">
+      <span class="avatar" id="userAvatar" aria-hidden="true"></span>
+      <span class="user-meta"><strong id="userName"></strong><small id="userRole"></small></span>
+      <button type="button" class="btn btn-ghost logout" id="btnLogout">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <!-- ---------- Catálogo (placeholder) ---------- -->
+  <section id="view-catalogo" class="view view-pad" hidden>
+    <div class="page-head"><h1>Catálogo de productos</h1></div>
+    <div class="card">
+      <div class="placeholder">
+        <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></div>
+        <h2>Catálogo próximamente</h2>
+        <p>Aquí podrás ver el catálogo de productos.</p>
+        <p id="catNote" style="margin-top:14px" hidden>Tu cuenta tiene acceso de solo lectura. Para usar el Sistema de inventario, pide a un administrador que te asigne un rol.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- Sistema de inventario ---------- -->
+  <section id="view-sistema" class="view layout" hidden>
+    <aside class="sidebar" aria-label="Sistema de inventario">
+      <div class="side-title">Sistema de inventario</div>
+      <button type="button" class="side-btn" data-sec="productos">
+        <svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg><span>Productos</span>
+      </button>
+      <button type="button" class="side-btn" data-sec="facturas">
+        <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span>Facturas</span>
+      </button>
+      <button type="button" class="side-btn" data-sec="movimientos">
+        <svg viewBox="0 0 24 24"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg><span>Movimientos</span>
+      </button>
+      <button type="button" class="side-btn" data-sec="consultas">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Consultas</span>
+      </button>
+    </aside>
+
+    <div class="content">
+
+      <!-- ===== PRODUCTOS ===== -->
+      <div class="section" id="sec-productos" hidden>
+        <div class="page-head">
+          <h1>Productos</h1>
+          <p>Registra un producto nuevo en el inventario.</p>
+        </div>
+        <form id="formProducto" class="card" novalidate>
+          <div class="card-body">
+            <div class="notice" id="noticeProductos" hidden></div>
+            <div class="form-msg" role="alert" hidden></div>
+            <fieldset id="fsProductos">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="prodSku">Código</label>
+                  <input class="input" id="prodSku" maxlength="60" autocomplete="off" placeholder="Ej. FERT-0001">
+                </div>
+                <div class="field">
+                  <label for="prodNombre">Producto</label>
+                  <input class="input" id="prodNombre" maxlength="160" autocomplete="off" placeholder="Nombre del producto">
+                </div>
+                <div class="field">
+                  <label for="prodCat">Categoría</label>
+                  <input class="input" id="prodCat" list="dlCategorias" maxlength="80" autocomplete="off" placeholder="Elige o escribe una categoría">
+                </div>
+                <div class="field">
+                  <label for="prodProv">Proveedor</label>
+                  <input class="input" id="prodProv" list="dlProveedores" maxlength="160" autocomplete="off" placeholder="Elige o escribe un proveedor">
+                </div>
+                <div class="field full">
+                  <label for="prodDesc">Descripción <span class="opt">(opcional)</span></label>
+                  <textarea class="input" id="prodDesc" maxlength="600" placeholder="Presentación, uso, observaciones…"></textarea>
+                </div>
+                <div class="field third">
+                  <label for="prodStock">Stock inicial</label>
+                  <input class="input" id="prodStock" type="number" inputmode="decimal" min="0" step="any" value="0">
+                </div>
+                <div class="field third">
+                  <label for="prodPD">Precio distribuidor (Q)</label>
+                  <input class="input" id="prodPD" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+                </div>
+                <div class="field third">
+                  <label for="prodPG">Precio ganadero (Q)</label>
+                  <input class="input" id="prodPG" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="reset" class="btn btn-secondary" id="resetProducto">Limpiar formulario</button>
+                <button type="submit" class="btn btn-primary" id="btnProducto">Registrar producto</button>
+              </div>
+            </fieldset>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== FACTURAS ===== -->
+      <div class="section" id="sec-facturas" hidden>
+        <div class="page-head">
+          <h1>Facturas</h1>
+          <p>Vincula una factura a un movimiento ya registrado.</p>
+        </div>
+        <form id="formFactura" class="card" novalidate>
+          <div class="card-body">
+            <div class="notice" id="noticeFacturas" hidden></div>
+            <div class="form-msg" role="alert" hidden></div>
+            <fieldset id="fsFacturas">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="facNumero">Número de factura</label>
+                  <input class="input" id="facNumero" maxlength="60" autocomplete="off" placeholder="Ej. A-000123">
+                </div>
+                <div class="field">
+                  <label for="facMov">Movimiento</label>
+                  <select class="input" id="facMov"></select>
+                  <span class="hint" id="facMovHint"></span>
+                </div>
+                <div class="info-box" id="facMovInfo" hidden></div>
+                <div class="field">
+                  <label for="facTipo">Tipo de factura</label>
+                  <input class="input" id="facTipo" readonly tabindex="-1" placeholder="Se copia del movimiento">
+                </div>
+                <div class="field">
+                  <label for="facFecha">Fecha de emisión</label>
+                  <input class="input" id="facFecha" type="date">
+                </div>
+                <div class="field">
+                  <label for="facProv">Proveedor <span class="opt" id="facProvOpt"></span></label>
+                  <input class="input" id="facProv" list="dlProveedores" maxlength="160" autocomplete="off" placeholder="Elige o escribe un proveedor">
+                </div>
+                <div class="field">
+                  <label for="facDoc">Documento de factura <span class="opt">(PDF o imagen, máx. 10 MB)</span></label>
+                  <input class="input" id="facDoc" type="file" accept="application/pdf,image/jpeg,image/png,image/webp">
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="reset" class="btn btn-secondary" id="resetFactura">Limpiar formulario</button>
+                <button type="submit" class="btn btn-primary" id="btnFactura">Guardar factura</button>
+              </div>
+            </fieldset>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== MOVIMIENTOS ===== -->
+      <div class="section" id="sec-movimientos" hidden>
+        <div class="page-head">
+          <h1>Movimientos</h1>
+          <p>Registra entradas, salidas y ajustes de inventario.</p>
+        </div>
+        <form id="formMovimiento" class="card" novalidate>
+          <div class="card-body">
+            <div class="notice" id="noticeMovimientos" hidden></div>
+            <div class="form-msg" role="alert" hidden></div>
+            <fieldset id="fsMovimientos">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="movNumero">Número de movimiento</label>
+                  <input class="input" id="movNumero" maxlength="40" autocomplete="off" placeholder="Ej. MOV-0001">
+                </div>
+                <div class="field">
+                  <label for="movProd">Producto</label>
+                  <button type="button" class="pick-btn" id="movProd" aria-haspopup="dialog">
+                    <span class="ph">Buscar y seleccionar producto…</span>
+                  </button>
+                </div>
+                <div class="info-box" id="movPreview" hidden></div>
+                <div class="field">
+                  <label for="movTipo">Tipo de movimiento</label>
+                  <select class="input" id="movTipo">
+                    <option value="">Selecciona un tipo…</option>
+                    <option value="entrada">Entrada (suma al stock)</option>
+                    <option value="salida">Salida (resta del stock)</option>
+                    <option value="ajuste">Ajuste (suma o resta)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="movCant">Cantidad</label>
+                  <input class="input" id="movCant" type="number" inputmode="decimal" step="any" placeholder="0">
+                  <span class="hint" id="movCantHint">Ingresa una cantidad mayor que cero.</span>
+                </div>
+                <div class="field">
+                  <label for="movFecha">Fecha</label>
+                  <input class="input" id="movFecha" type="date">
+                </div>
+                <div class="field">
+                  <label for="movFac">Factura relacionada</label>
+                  <input class="input" id="movFac" readonly tabindex="-1" placeholder="Se asigna al guardar la factura de este movimiento">
+                </div>
+              </div>
+              <div class="form-actions">
+                <button type="reset" class="btn btn-secondary" id="resetMovimiento">Limpiar formulario</button>
+                <button type="submit" class="btn btn-primary" id="btnMovimiento">Registrar movimiento</button>
+              </div>
+            </fieldset>
+          </div>
+        </form>
+      </div>
+
+      <!-- ===== CONSULTAS ===== -->
+      <div class="section" id="sec-consultas" hidden>
+        <div class="page-head">
+          <h1>Consultas</h1>
+          <p>Busca productos, movimientos y facturas.</p>
+        </div>
+
+        <div class="cons-switch">
+          <div class="seg" id="segCons" role="group" aria-label="Tipo de consulta">
+            <button type="button" data-cons="productos" aria-pressed="true">Productos</button>
+            <button type="button" data-cons="movimientos" aria-pressed="false">Movimientos</button>
+            <button type="button" data-cons="facturas" aria-pressed="false">Facturas</button>
+          </div>
+        </div>
+
+        <!-- --- Consulta de productos --- -->
+        <div id="cons-productos">
+          <form class="card toolbar" id="formQProd" role="search">
+            <div class="search-row">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input class="input" id="qProd" type="search" autocomplete="off" placeholder="Buscar producto por nombre o código" aria-label="Buscar producto por nombre o código">
+              </div>
+              <button type="submit" class="btn btn-primary">Consultar producto</button>
+            </div>
+            <div class="filters">
+              <div class="seg-field">
+                <span>Disponibilidad</span>
+                <div class="seg" id="segProdDisp" role="group" aria-label="Disponibilidad">
+                  <button type="button" data-v="all" aria-pressed="true">Todos</button>
+                  <button type="button" data-v="ok" aria-pressed="false">Disponibles</button>
+                  <button type="button" data-v="out" aria-pressed="false">Agotados</button>
+                </div>
+              </div>
+              <div class="field">
+                <label for="selCat">Categoría</label>
+                <select class="input" id="selCat"><option value="">Todas las categorías</option></select>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="clearProd">Limpiar filtros</button>
+            </div>
+          </form>
+
+          <div class="stats s3">
+            <div class="stat"><span class="stat-label">Registrados</span><strong class="stat-value" id="stProdTotal">0</strong></div>
+            <div class="stat ok"><span class="stat-label">En stock</span><strong class="stat-value" id="stProdOk">0</strong></div>
+            <div class="stat out"><span class="stat-label">Agotados</span><strong class="stat-value" id="stProdOut">0</strong></div>
+          </div>
+
+          <div class="result-meta"><span id="metaProd"></span><button type="button" class="btn btn-secondary btn-sm" data-refresh>Actualizar datos</button></div>
+          <div class="table-wrap" id="wrapProd">
+            <table class="tbl">
+              <thead><tr><th>Código</th><th>Producto</th><th class="num">Stock actual</th><th class="num">Precio distribuidor</th><th class="num">Precio ganadero</th></tr></thead>
+              <tbody id="tbProd"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- --- Consulta de movimientos --- -->
+        <div id="cons-movimientos" hidden>
+          <form class="card toolbar" id="formQMov" role="search">
+            <div class="search-row">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input class="input" id="qMov" type="search" autocomplete="off" placeholder="Buscar por producto o número de movimiento" aria-label="Buscar por producto o número de movimiento">
+              </div>
+              <button type="submit" class="btn btn-primary">Consultar movimientos</button>
+            </div>
+            <div class="filters">
+              <div class="seg-field">
+                <span>Tipo de movimiento</span>
+                <div class="seg" id="segMovTipo" role="group" aria-label="Tipo de movimiento">
+                  <button type="button" data-v="all" aria-pressed="true">Todos</button>
+                  <button type="button" data-v="entrada" aria-pressed="false">Entradas</button>
+                  <button type="button" data-v="salida" aria-pressed="false">Salidas</button>
+                  <button type="button" data-v="ajuste" aria-pressed="false">Ajustes</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="clearMov">Limpiar filtros</button>
+            </div>
+          </form>
+
+          <div class="stats s4">
+            <div class="stat"><span class="stat-label">Movimientos</span><strong class="stat-value" id="stMovTotal">0</strong></div>
+            <div class="stat ok"><span class="stat-label">Entradas</span><strong class="stat-value" id="stMovIn">0</strong></div>
+            <div class="stat out"><span class="stat-label">Salidas</span><strong class="stat-value" id="stMovOut">0</strong></div>
+            <div class="stat adj"><span class="stat-label">Ajustes</span><strong class="stat-value" id="stMovAdj">0</strong></div>
+          </div>
+
+          <div class="result-meta"><span id="metaMov"></span><button type="button" class="btn btn-secondary btn-sm" data-refresh>Actualizar datos</button></div>
+          <div class="table-wrap" id="wrapMov">
+            <table class="tbl">
+              <thead><tr><th>N.º movimiento</th><th>Producto</th><th>Tipo</th><th class="num">Cantidad</th><th>Fecha</th><th>Factura</th></tr></thead>
+              <tbody id="tbMov"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- --- Consulta de facturas --- -->
+        <div id="cons-facturas" hidden>
+          <form class="card toolbar" id="formQFac" role="search">
+            <div class="search-row">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input class="input" id="qFac" type="search" autocomplete="off" placeholder="Buscar por número de factura" aria-label="Buscar por número de factura">
+              </div>
+              <button type="submit" class="btn btn-primary">Consultar facturas</button>
+            </div>
+            <div class="filters">
+              <div class="field">
+                <label for="selFacProv">Proveedor</label>
+                <select class="input" id="selFacProv"><option value="">Todos los proveedores</option></select>
+              </div>
+              <div class="field">
+                <label for="facDesde">Desde</label>
+                <input class="input" id="facDesde" type="date">
+              </div>
+              <div class="field">
+                <label for="facHasta">Hasta</label>
+                <input class="input" id="facHasta" type="date">
+              </div>
+              <div class="field">
+                <label for="btnFacProd">Producto</label>
+                <div style="display:flex; gap:6px">
+                  <button type="button" class="pick-btn" id="btnFacProd" aria-haspopup="dialog"><span class="ph">Todos los productos</span></button>
+                  <button type="button" class="icon-btn" id="btnFacProdClear" aria-label="Quitar filtro de producto" hidden>×</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="clearFac">Limpiar filtros</button>
+            </div>
+          </form>
+
+          <div class="result-meta"><span id="metaFac"></span><button type="button" class="btn btn-secondary btn-sm" data-refresh>Actualizar datos</button></div>
+          <div class="table-wrap" id="wrapFac">
+            <table class="tbl">
+              <thead><tr><th>N.º factura</th><th>Fecha</th><th>Tipo</th><th>Proveedor</th><th>Movimiento</th><th>Producto</th><th class="num">Cantidad</th><th>Documento</th></tr></thead>
+              <tbody id="tbFac"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<!-- Listas de autocompletado -->
+<datalist id="dlProveedores"></datalist>
+<datalist id="dlCategorias"></datalist>
+
+<!-- Diálogo de confirmación -->
+<dialog id="dlgConfirm" aria-labelledby="cfTitle">
+  <form method="dialog">
+    <div class="dlg-body">
+      <h3 id="cfTitle"></h3>
+      <div class="dlg-text" id="cfBody"></div>
+    </div>
+    <div class="dlg-actions">
+      <button type="submit" class="btn btn-secondary" value="cancel">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="cfOk" value="ok">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Selector de producto con búsqueda -->
+<dialog id="dlgPicker" aria-labelledby="pkTitle">
+  <div class="dlg-head">
+    <h3 id="pkTitle">Seleccionar producto</h3>
+    <button type="button" class="icon-btn" id="pkClose" aria-label="Cerrar">×</button>
+  </div>
+  <div class="dlg-search">
+    <input class="input" id="pkSearch" type="search" autocomplete="off" placeholder="Buscar producto por nombre" aria-label="Buscar producto por nombre">
+  </div>
+  <ul id="pkList"></ul>
+  <div class="pk-foot" id="pkFoot"></div>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   CONFIGURACIÓN  ← reemplaza estos dos valores
+   Supabase > Project Settings > API
+   Usa la clave "anon" / "publishable" (NUNCA la service_role).
+   ===================================================================== */
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+
+(() => {
+'use strict';
+
+/* ---------- Ajustes de la aplicación ---------- */
+const LOW_STOCK_DEFAULT = 5;     // "Stock bajo" si el producto no define stock_minimo
+const MAX_ROWS = 200;            // filas máximas dibujadas por tabla
+const BUCKET = 'facturas';
+const MAX_FILE_MB = 10;
+const CURRENCY = 'Q';
+const FILE_TYPES = { 'application/pdf':'pdf', 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' };
+
+const ROLES = { admin:'Administrador', gerente:'Gerente', vendedor:'Vendedor', bodega:'Bodega', contador:'Contador', lectura:'Solo lectura' };
+const TIPOS = { entrada:'Entrada', salida:'Salida', ajuste:'Ajuste' };
+/* Quién puede registrar en cada formulario (debe coincidir con las políticas RLS) */
+const PERMISOS = {
+  productos:   ['admin','gerente','bodega'],
+  facturas:    ['admin','gerente','vendedor','contador'],
+  movimientos: ['admin','gerente','vendedor','bodega']
+};
+
+/* ---------- Utilidades ---------- */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const pad = (n, l = 2) => String(n).padStart(l, '0');
+const nfNum = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 3 });
+const nfMoney = new Intl.NumberFormat('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtNum = n => nfNum.format(Number(n) || 0);
+const fmtMoney = n => `${CURRENCY} ${nfMoney.format(Number(n) || 0)}`;
+const fmtDate = s => { if (!s) return '—'; const [y, m, d] = String(s).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const numVal = el => el.value.trim() === '' ? NaN : Number(el.value);
+
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type === 'err' ? ' err' : '');
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), type === 'err' ? 7000 : 3500);
+}
+
+function formMsg(form, type, text) {
+  const box = $('.form-msg', form);
+  if (!box) return;
+  if (!text) { box.hidden = true; box.textContent = ''; return; }
+  box.className = 'form-msg ' + type;
+  box.textContent = text;
+  box.hidden = false;
+}
+function setErr(el, msg) {
+  const wrap = el.closest('.field');
+  if (!wrap) return;
+  wrap.classList.add('invalid');
+  let e = $('.err', wrap);
+  if (!e) { e = document.createElement('span'); e.className = 'err'; wrap.appendChild(e); }
+  e.textContent = msg;
+}
+function clearErrs(form) {
+  $$('.field.invalid', form).forEach(w => { w.classList.remove('invalid'); const e = $('.err', w); if (e) e.remove(); });
+  formMsg(form);
+}
+function busy(btn, on) { btn.disabled = on; btn.classList.toggle('loading', on); }
+
+function friendlyError(err) {
+  const msg = (err && err.message) || '';
+  const code = err && err.code;
+  if (/Failed to fetch|NetworkError|Load failed|network/i.test(msg)) return 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.';
+  if (code === '42501' || /row-level security|permission denied|not authorized/i.test(msg)) return 'Tu rol no tiene permiso para realizar esta acción.';
+  if (/Stock insuficiente/i.test(msg)) return 'Stock insuficiente: la operación dejaría el inventario en negativo.';
+  if (code === '23505' || /duplicate key/i.test(msg)) {
+    if (/productos_sku_key/.test(msg)) return 'Ya existe un producto con ese código.';
+    if (/uq_movimientos_numero/.test(msg)) return 'Ya existe un movimiento con ese número.';
+    if (/uq_facturas_movimiento/.test(msg)) return 'Ese movimiento ya tiene una factura asociada.';
+    if (/uq_facturas_numero/.test(msg)) return 'Ya existe una factura con ese número.';
+    if (/uq_proveedores_nit/.test(msg)) return 'Ya existe un proveedor con ese NIT.';
+    return 'Ya existe un registro con esos datos.';
+  }
+  if (code === '23503') return 'Un registro relacionado ya no existe. Actualiza los datos e inténtalo de nuevo.';
+  if (code === '42703' || code === 'PGRST204' || /column .* does not exist|schema cache/i.test(msg)) return 'La base de datos no está actualizada. Ejecuta supabase_migracion_interfaz.sql en Supabase y recarga la página.';
+  if (/Payload too large|exceeded the maximum allowed size/i.test(msg)) return `El archivo supera el máximo de ${MAX_FILE_MB} MB.`;
+  return 'No se pudo completar la operación.' + (msg ? ` (${msg})` : '');
+}
+
+/* ---------- Estado ---------- */
+const S = {
+  perfil: null, loaded: false, loadError: null,
+  productos: [], proveedores: [], movimientos: [], facturas: [],
+  prodById: new Map(), provById: new Map(), movById: new Map(), facById: new Map(), facByMov: new Map(),
+  movProd: null,       // producto elegido en el formulario de movimientos
+  facProdFilter: null  // producto elegido en el filtro de facturas
+};
+const F = {
+  prod: { q: '', disp: 'all', cat: '' },
+  mov:  { q: '', tipo: 'all' },
+  fac:  { q: '', prov: '', desde: '', hasta: '' }
+};
+
+/* ---------- Supabase ---------- */
+const configured = !/TU-PROYECTO|TU-ANON-KEY/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
+const db = (configured && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+async function fetchAll(table, orders) {
+  const size = 1000; let from = 0, all = [];
+  for (;;) {
+    let q = db.from(table).select('*').range(from, from + size - 1);
+    orders.forEach(o => { q = q.order(o[0], { ascending: o[1] }); });
+    const { data, error } = await q;
+    if (error) throw error;
+    all = all.concat(data);
+    if (data.length < size) break;
+    from += size;
+  }
+  return all;
+}
+
+function rebuild() {
+  S.productos.forEach(p => { p._h = norm(p.nombre + ' ' + p.sku); });
+  S.prodById = new Map(S.productos.map(p => [p.id, p]));
+  S.provById = new Map(S.proveedores.map(p => [p.id, p]));
+  S.movimientos.forEach(m => {
+    const p = S.prodById.get(m.producto_id);
+    m._h = norm(m.numero + ' ' + (p ? p.nombre + ' ' + p.sku : ''));
+  });
+  S.movById = new Map(S.movimientos.map(m => [m.id, m]));
+  S.facById = new Map(S.facturas.map(f => [f.id, f]));
+  S.facByMov = new Map(S.facturas.filter(f => f.movimiento_id).map(f => [f.movimiento_id, f]));
+  S.facturas.forEach(f => { f._h = norm(f.numero); });
+}
+
+async function loadAll() {
+  S.loadError = null;
+  try {
+    const [productos, proveedores, movimientos, facturas] = await Promise.all([
+      fetchAll('productos',    [['nombre', true], ['id', true]]),
+      fetchAll('proveedores',  [['nombre', true], ['id', true]]),
+      fetchAll('movimientos',  [['fecha', false], ['created_at', false], ['id', true]]),
+      fetchAll('facturas',     [['fecha', false], ['created_at', false], ['id', true]])
+    ]);
+    S.productos = productos; S.proveedores = proveedores; S.movimientos = movimientos; S.facturas = facturas;
+    rebuild();
+    S.loaded = true;
+  } catch (err) {
+    S.loadError = friendlyError(err);
+    toast(S.loadError, 'err');
+  }
+  refreshUI();
+}
+
+function refreshUI() {
+  fillLists();
+  renderProductos();
+  renderMovimientos();
+  renderFacturas();
+  fillFacMovSelect();
+  suggestMovNumber(false);
+  updateMovPreview();
+}
+
+/* ---------- Autenticación ---------- */
+function authMsg(type, text) {
+  const box = $('#authMsg');
+  if (!text) { box.hidden = true; box.textContent = ''; return; }
+  box.className = 'form-msg ' + type; box.textContent = text; box.hidden = false;
+}
+function authError(err) {
+  const msg = (err && err.message) || '';
+  if (/Invalid login credentials/i.test(msg)) return 'Correo o contraseña incorrectos.';
+  if (/Email not confirmed/i.test(msg)) return 'Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.';
+  if (/already registered|already been registered/i.test(msg)) return 'Ya existe una cuenta con ese correo.';
+  if (/Password should be|at least/i.test(msg)) return 'La contraseña es demasiado corta. Usa al menos 8 caracteres.';
+  if (/rate limit|too many/i.test(msg)) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return 'No se pudo conectar con el servidor. Revisa tu conexión.';
+  return 'No se pudo completar la operación. ' + msg;
+}
+
+function showAuth() {
+  $('#app').hidden = true;
+  $('#screenAuth').hidden = false;
+  $('#loginPass').value = ''; $('#regPass').value = ''; $('#regPass2').value = '';
+}
+function selectAuthTab(which) {
+  const login = which === 'login';
+  $('#tabLogin').setAttribute('aria-selected', login);
+  $('#tabRegister').setAttribute('aria-selected', !login);
+  $('#formLogin').hidden = !login;
+  $('#formRegister').hidden = login;
+  authMsg();
+}
+
+async function enterApp(user) {
+  const { data: perfil, error } = await db.from('perfiles').select('*').eq('id', user.id).maybeSingle();
+  if (error || !perfil || !perfil.activo) {
+    await db.auth.signOut();
+    showAuth();
+    authMsg('err', error ? friendlyError(error)
+      : !perfil ? 'Tu cuenta no tiene un perfil asignado. Contacta a un administrador.'
+      : 'Tu cuenta está desactivada. Contacta a un administrador.');
+    return;
+  }
+  S.perfil = perfil;
+  const nombre = perfil.nombre_completo || perfil.email || user.email || 'Usuario';
+  $('#userName').textContent = nombre;
+  $('#userRole').textContent = ROLES[perfil.rol] || perfil.rol;
+  $('#userAvatar').textContent = nombre.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+  const staff = perfil.rol !== 'lectura';
+  $('#navSistema').hidden = !staff;
+  $('#catNote').hidden = staff;
+
+  $('#screenAuth').hidden = true;
+  $('#app').hidden = false;
+  authMsg();
+
+  if (staff) {
+    applyPermissions();
+    resetFormMovimiento(); resetFormFactura();
+    $('#prodStock').value = '0';
+    showView('sistema'); showSection('consultas'); showCons('productos');
+    loadAll();
+  } else {
+    showView('catalogo');
+  }
+}
+
+function resetState() {
+  S.perfil = null; S.loaded = false; S.loadError = null;
+  S.productos = []; S.proveedores = []; S.movimientos = []; S.facturas = [];
+  S.movProd = null; S.facProdFilter = null;
+  rebuild();
+  F.prod = { q: '', disp: 'all', cat: '' }; F.mov = { q: '', tipo: 'all' }; F.fac = { q: '', prov: '', desde: '', hasta: '' };
+}
+
+/* ---------- Navegación ---------- */
+function showView(v) {
+  $$('.view').forEach(x => { x.hidden = x.id !== 'view-' + v; });
+  $$('.topnav button').forEach(b => b.setAttribute('aria-current', b.dataset.view === v ? 'page' : 'false'));
+  window.scrollTo(0, 0);
+}
+function showSection(s) {
+  $$('.section').forEach(x => { x.hidden = x.id !== 'sec-' + s; });
+  $$('.side-btn').forEach(b => b.setAttribute('aria-current', b.dataset.sec === s ? 'page' : 'false'));
+  window.scrollTo(0, 0);
+  if (s === 'consultas') focusSearch();
+}
+function showCons(c) {
+  ['productos', 'movimientos', 'facturas'].forEach(k => { $('#cons-' + k).hidden = k !== c; });
+  $$('#segCons button').forEach(b => b.setAttribute('aria-pressed', b.dataset.cons === c));
+  focusSearch();
+}
+function focusSearch() {
+  if (!window.matchMedia('(hover:hover)').matches) return;   // en teléfonos no se abre el teclado solo
+  const map = { productos: '#qProd', movimientos: '#qMov', facturas: '#qFac' };
+  const active = ['productos', 'movimientos', 'facturas'].find(k => !$('#cons-' + k).hidden);
+  const el = active && $(map[active]);
+  if (el && !$('#sec-consultas').hidden) setTimeout(() => el.focus(), 30);
+}
+
+function applyPermissions() {
+  const rol = S.perfil.rol;
+  const cfg = {
+    productos:   ['#fsProductos',   '#noticeProductos',   'registrar productos'],
+    facturas:    ['#fsFacturas',    '#noticeFacturas',    'registrar facturas'],
+    movimientos: ['#fsMovimientos', '#noticeMovimientos', 'registrar movimientos']
+  };
+  Object.keys(cfg).forEach(k => {
+    const can = PERMISOS[k].includes(rol);
+    $(cfg[k][0]).disabled = !can;
+    const n = $(cfg[k][1]);
+    n.hidden = can;
+    if (!can) n.textContent = `Tu rol (${ROLES[rol]}) no puede ${cfg[k][2]}. Puedes revisar la información en la sección Consultas.`;
+  });
+}
+
+/* ---------- Diálogos ---------- */
+function confirmDialog({ title, html, confirmText = 'Confirmar', danger = false }) {
+  return new Promise(resolve => {
+    const d = $('#dlgConfirm');
+    $('#cfTitle').textContent = title;
+    $('#cfBody').innerHTML = html;
+    const ok = $('#cfOk');
+    ok.textContent = confirmText;
+    ok.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    d.returnValue = '';
+    d.addEventListener('close', () => resolve(d.returnValue === 'ok'), { once: true });
+    d.showModal();
+  });
+}
+
+function pickProduct() {
+  return new Promise(resolve => {
+    const d = $('#dlgPicker'), input = $('#pkSearch'), list = $('#pkList'), foot = $('#pkFoot');
+    let chosen = null;
+    const render = () => {
+      const toks = norm(input.value).split(/\s+/).filter(Boolean);
+      const all = S.productos.filter(p => toks.every(t => p._h.includes(t)));
+      const items = all.slice(0, 100);
+      list.innerHTML = items.length
+        ? items.map(p => `<li><button type="button" class="pk-item" data-id="${esc(p.id)}">
+            <span class="pk-main"><strong>${esc(p.nombre)}</strong><small>${esc(p.sku)} · Stock: ${fmtNum(p.stock_actual)}</small></span>
+            ${stockBadge(p)}</button></li>`).join('')
+        : `<li class="empty">${S.productos.length ? 'Ningún producto coincide con la búsqueda.' : 'Aún no hay productos registrados.'}</li>`;
+      foot.textContent = all.length > 100 ? `Mostrando 100 de ${all.length} productos. Escribe más para afinar.` : `${all.length} producto${all.length === 1 ? '' : 's'}`;
+    };
+    const onInput = () => render();
+    const onClick = e => { const b = e.target.closest('.pk-item'); if (b) { chosen = S.prodById.get(b.dataset.id) || null; d.close(); } };
+    const onBackdrop = e => { if (e.target === d) d.close(); };
+    input.value = ''; render();
+    input.addEventListener('input', onInput);
+    list.addEventListener('click', onClick);
+    d.addEventListener('click', onBackdrop);
+    $('#pkClose').onclick = () => d.close();
+    d.addEventListener('close', () => {
+      input.removeEventListener('input', onInput);
+      list.removeEventListener('click', onClick);
+      d.removeEventListener('click', onBackdrop);
+      resolve(chosen);
+    }, { once: true });
+    d.showModal();
+    input.focus();
+  });
+}
+
+/* ---------- Estado de stock ---------- */
+function stockState(p) {
+  const s = Number(p.stock_actual) || 0;
+  if (s <= 0) return 'out';
+  const min = Number(p.stock_minimo) > 0 ? Number(p.stock_minimo) : LOW_STOCK_DEFAULT;
+  return s <= min ? 'low' : 'ok';
+}
+function stockBadge(p) {
+  const m = { ok: ['ok', 'Disponible'], low: ['low', 'Stock bajo'], out: ['out', 'Agotado'] }[stockState(p)];
+  return `<span class="badge ${m[0]}">${m[1]}</span>`;
+}
+const tipoBadge = t => `<span class="badge t-${esc(t)}">${esc(TIPOS[t] || t)}</span>`;
+function signedQty(m) {
+  const c = Number(m.cantidad) || 0;
+  if (m.tipo === 'salida') return { txt: '−' + fmtNum(c), cls: 'qty-neg' };
+  if (m.tipo === 'entrada') return { txt: '+' + fmtNum(c), cls: 'qty-pos' };
+  return c < 0 ? { txt: '−' + fmtNum(Math.abs(c)), cls: 'qty-neg' } : { txt: '+' + fmtNum(c), cls: 'qty-pos' };
+}
+
+/* ---------- Listas de autocompletado y selects ---------- */
+function fillLists() {
+  $('#dlProveedores').innerHTML = S.proveedores.map(p => `<option value="${esc(p.nombre)}"></option>`).join('');
+  const cats = Array.from(new Set(S.productos.map(p => p.categoria).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+  $('#dlCategorias').innerHTML = cats.map(c => `<option value="${esc(c)}"></option>`).join('');
+
+  const selCat = $('#selCat');
+  selCat.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (cats.includes(F.prod.cat)) selCat.value = F.prod.cat; else F.prod.cat = '';
+
+  const selProv = $('#selFacProv');
+  selProv.innerHTML = '<option value="">Todos los proveedores</option>' + S.proveedores.map(p => `<option value="${esc(p.id)}">${esc(p.nombre)}</option>`).join('');
+  selProv.value = S.provById.has(F.fac.prov) ? F.fac.prov : '';
+  if (selProv.value === '') F.fac.prov = '';
+}
+
+function findProveedor(name) {
+  const n = norm(name);
+  return n ? S.proveedores.find(p => norm(p.nombre) === n) || null : null;
+}
+
+/* =====================================================================
+   CONSULTAS
+   ===================================================================== */
+function emptyRow(cols, text) { return `<tr><td class="empty" colspan="${cols}">${esc(text)}</td></tr>`; }
+
+/* ---- Productos ---- */
+function filteredProductos() {
+  const { q, disp, cat } = F.prod;
+  const toks = norm(q).split(/\s+/).filter(Boolean);
+  return S.productos.filter(p => {
+    if (cat && p.categoria !== cat) return false;
+    const st = stockState(p);
+    if (disp === 'ok' && st === 'out') return false;
+    if (disp === 'out' && st !== 'out') return false;
+    return toks.every(t => p._h.includes(t));
+  });
+}
+function renderProductos() {
+  const tb = $('#tbProd');
+  if (!S.loaded) {
+    tb.innerHTML = emptyRow(5, S.loadError || 'Cargando productos…');
+    ['#stProdTotal', '#stProdOk', '#stProdOut'].forEach(s => { $(s).textContent = '–'; });
+    $('#metaProd').textContent = '';
+    return;
+  }
+  const rows = filteredProductos();
+  const out = rows.filter(p => stockState(p) === 'out').length;
+  $('#stProdTotal').textContent = fmtNum(rows.length);
+  $('#stProdOk').textContent = fmtNum(rows.length - out);
+  $('#stProdOut').textContent = fmtNum(out);
+
+  const shown = rows.slice(0, MAX_ROWS);
+  $('#metaProd').textContent = rows.length > MAX_ROWS ? `Mostrando ${MAX_ROWS} de ${rows.length} productos. Afina la búsqueda para ver el resto.` : `${rows.length} producto${rows.length === 1 ? '' : 's'}`;
+  tb.innerHTML = shown.length ? shown.map(p => `<tr>
+      <td data-label="Código" class="mono">${esc(p.sku)}</td>
+      <td data-label="Producto"><strong>${esc(p.nombre)}</strong>${p.categoria ? `<span class="sub">${esc(p.categoria)}</span>` : ''}</td>
+      <td data-label="Stock actual" class="num"><span class="stockcell"><span class="mono"><strong>${fmtNum(p.stock_actual)}</strong></span>${stockBadge(p)}</span></td>
+      <td data-label="Precio distribuidor" class="num mono">${fmtMoney(p.precio_distribuidor)}</td>
+      <td data-label="Precio ganadero" class="num mono">${fmtMoney(p.precio_ganadero)}</td>
+    </tr>`).join('')
+    : emptyRow(5, S.productos.length ? 'No se encontraron productos con esos criterios.' : 'Aún no hay productos registrados.');
+}
+
+/* ---- Movimientos ---- */
+function filteredMovimientos() {
+  const { q, tipo } = F.mov;
+  const toks = norm(q).split(/\s+/).filter(Boolean);
+  return S.movimientos.filter(m => (tipo === 'all' || m.tipo === tipo) && toks.every(t => m._h.includes(t)));
+}
+function renderMovimientos() {
+  const tb = $('#tbMov');
+  if (!S.loaded) {
+    tb.innerHTML = emptyRow(6, S.loadError || 'Cargando movimientos…');
+    ['#stMovTotal', '#stMovIn', '#stMovOut', '#stMovAdj'].forEach(s => { $(s).textContent = '–'; });
+    $('#metaMov').textContent = '';
+    return;
+  }
+  const rows = filteredMovimientos();
+  $('#stMovTotal').textContent = fmtNum(rows.length);
+  $('#stMovIn').textContent = fmtNum(rows.filter(m => m.tipo === 'entrada').length);
+  $('#stMovOut').textContent = fmtNum(rows.filter(m => m.tipo === 'salida').length);
+  $('#stMovAdj').textContent = fmtNum(rows.filter(m => m.tipo === 'ajuste').length);
+
+  const shown = rows.slice(0, MAX_ROWS);
+  $('#metaMov').textContent = rows.length > MAX_ROWS ? `Mostrando ${MAX_ROWS} de ${rows.length} movimientos. Afina la búsqueda para ver el resto.` : `${rows.length} movimiento${rows.length === 1 ? '' : 's'}`;
+  tb.innerHTML = shown.length ? shown.map(m => {
+    const p = S.prodById.get(m.producto_id);
+    const f = S.facByMov.get(m.id) || S.facById.get(m.factura_id);
+    const q = signedQty(m);
+    return `<tr>
+      <td data-label="N.º movimiento" class="mono"><strong>${esc(m.numero)}</strong></td>
+      <td data-label="Producto">${p ? `<strong>${esc(p.nombre)}</strong><span class="sub">${esc(p.sku)}</span>` : '—'}</td>
+      <td data-label="Tipo">${tipoBadge(m.tipo)}</td>
+      <td data-label="Cantidad" class="num mono ${q.cls}">${q.txt}</td>
+      <td data-label="Fecha" class="mono">${fmtDate(m.fecha)}</td>
+      <td data-label="Factura" class="mono">${f ? esc(f.numero) : '<span class="muted">Sin factura</span>'}</td>
+    </tr>`;
+  }).join('') : emptyRow(6, S.movimientos.length ? 'No se encontraron movimientos con esos criterios.' : 'Aún no hay movimientos registrados.');
+}
+
+/* ---- Facturas ---- */
+function filteredFacturas() {
+  const { q, prov, desde, hasta } = F.fac;
+  const toks = norm(q).split(/\s+/).filter(Boolean);
+  const pid = S.facProdFilter ? S.facProdFilter.id : '';
+  return S.facturas.filter(f => {
+    if (prov && f.proveedor_id !== prov) return false;
+    if (desde && String(f.fecha) < desde) return false;
+    if (hasta && String(f.fecha) > hasta) return false;
+    if (pid) { const m = S.movById.get(f.movimiento_id); if (!m || m.producto_id !== pid) return false; }
+    return toks.every(t => f._h.includes(t));
+  });
+}
+function renderFacturas() {
+  const tb = $('#tbFac');
+  if (!S.loaded) { tb.innerHTML = emptyRow(8, S.loadError || 'Cargando facturas…'); $('#metaFac').textContent = ''; return; }
+  const rows = filteredFacturas();
+  const shown = rows.slice(0, MAX_ROWS);
+  $('#metaFac').textContent = rows.length > MAX_ROWS ? `Mostrando ${MAX_ROWS} de ${rows.length} facturas. Afina la búsqueda para ver el resto.` : `${rows.length} factura${rows.length === 1 ? '' : 's'}`;
+  tb.innerHTML = shown.length ? shown.map(f => {
+    const m = S.movById.get(f.movimiento_id);
+    const p = m && S.prodById.get(m.producto_id);
+    const pv = S.provById.get(f.proveedor_id);
+    const q = m ? signedQty(m) : null;
+    return `<tr>
+      <td data-label="N.º factura" class="mono"><strong>${esc(f.numero)}</strong></td>
+      <td data-label="Fecha" class="mono">${fmtDate(f.fecha)}</td>
+      <td data-label="Tipo">${tipoBadge(f.tipo)}</td>
+      <td data-label="Proveedor">${pv ? esc(pv.nombre) : '<span class="muted">—</span>'}</td>
+      <td data-label="Movimiento" class="mono">${m ? esc(m.numero) : '—'}</td>
+      <td data-label="Producto">${p ? `<strong>${esc(p.nombre)}</strong><span class="sub">${esc(p.sku)}</span>` : '—'}</td>
+      <td data-label="Cantidad" class="num mono ${q ? q.cls : ''}">${q ? q.txt : '—'}</td>
+      <td data-label="Documento">${f.documento_path ? `<button type="button" class="btn btn-secondary btn-sm" data-doc="${esc(f.documento_path)}">Ver documento</button>` : '<span class="muted">Sin documento</span>'}</td>
+    </tr>`;
+  }).join('') : emptyRow(8, S.facturas.length ? 'No se encontraron facturas con esos criterios.' : 'Aún no hay facturas registradas.');
+}
+
+async function verDocumento(path) {
+  const w = window.open('about:blank', '_blank');
+  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 120);
+  if (error || !data) {
+    if (w) w.close();
+    toast('No se pudo abrir el documento. ' + friendlyError(error), 'err');
+    return;
+  }
+  if (w) w.location.href = data.signedUrl; else window.open(data.signedUrl, '_blank');
+}
+
+/* =====================================================================
+   FORMULARIO: PRODUCTOS
+   ===================================================================== */
+async function submitProducto(e) {
+  e.preventDefault();
+  const f = e.target; clearErrs(f);
+  const el = { sku: $('#prodSku'), nombre: $('#prodNombre'), cat: $('#prodCat'), prov: $('#prodProv'), desc: $('#prodDesc'), stock: $('#prodStock'), pd: $('#prodPD'), pg: $('#prodPG') };
+  const errs = [];
+  const bad = (x, m) => { setErr(x, m); errs.push(x); };
+
+  const sku = el.sku.value.trim(), nombre = el.nombre.value.trim();
+  const stock = numVal(el.stock), pd = numVal(el.pd), pg = numVal(el.pg);
+  if (!sku) bad(el.sku, 'Ingresa el código del producto.');
+  else if (S.productos.some(p => norm(p.sku) === norm(sku))) bad(el.sku, 'Ya existe un producto con este código.');
+  if (!nombre) bad(el.nombre, 'Ingresa el nombre del producto.');
+  if (Number.isNaN(stock) || stock < 0) bad(el.stock, 'Ingresa un stock inicial de 0 o más.');
+  if (Number.isNaN(pd) || pd < 0) bad(el.pd, 'Ingresa un precio válido.');
+  if (Number.isNaN(pg) || pg < 0) bad(el.pg, 'Ingresa un precio válido.');
+  if (errs.length) { errs[0].focus(); return; }
+
+  const provName = el.prov.value.trim();
+  const provExist = findProveedor(provName);
+  const provNuevo = provName && !provExist;
+
+  const ok = await confirmDialog({
+    title: '¿Registrar este producto?',
+    html: `<p><strong>${esc(nombre)}</strong> (código ${esc(sku)}) se agregará al inventario con un stock inicial de <strong>${fmtNum(stock)}</strong>.</p>
+           <ul><li>Precio distribuidor: ${fmtMoney(pd)}</li><li>Precio ganadero: ${fmtMoney(pg)}</li>
+           ${provNuevo ? `<li>Se creará el proveedor nuevo <strong>${esc(provName)}</strong>.</li>` : ''}</ul>`,
+    confirmText: 'Registrar producto'
+  });
+  if (!ok) return;
+
+  const btn = $('#btnProducto'); busy(btn, true);
+  try {
+    let provId = provExist ? provExist.id : null;
+    if (provNuevo) {
+      const { data, error } = await db.from('proveedores').insert({ nombre: provName }).select().single();
+      if (error) throw error;
+      provId = data.id;
+    }
+    const { error } = await db.from('productos').insert({
+      sku, nombre,
+      descripcion: el.desc.value.trim() || null,
+      categoria: el.cat.value.trim() || null,
+      proveedor_id: provId,
+      stock_actual: stock,
+      precio_distribuidor: pd,
+      precio_ganadero: pg
+    });
+    if (error) throw error;
+    toast(`Producto «${nombre}» registrado.`);
+    f.reset(); $('#prodStock').value = '0';
+    await loadAll();
+    el.sku.focus();
+  } catch (err) {
+    formMsg(f, 'err', friendlyError(err));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } finally { busy(btn, false); }
+}
+
+/* =====================================================================
+   FORMULARIO: MOVIMIENTOS
+   ===================================================================== */
+function suggestMovNumber(force) {
+  const inp = $('#movNumero');
+  if (!force && inp.dataset.touched === '1') return;
+  let max = 0;
+  S.movimientos.forEach(m => { const r = /^MOV-(\d+)$/i.exec(m.numero || ''); if (r) max = Math.max(max, parseInt(r[1], 10)); });
+  inp.value = 'MOV-' + pad(max + 1, 4);
+  inp.dataset.touched = '0';
+}
+function resetFormMovimiento() {
+  const f = $('#formMovimiento');
+  f.reset(); clearErrs(f);
+  S.movProd = null;
+  setMovProdLabel();
+  $('#movFecha').value = todayStr();
+  $('#movNumero').dataset.touched = '0';
+  suggestMovNumber(true);
+  onMovTipoChange();
+  updateMovPreview();
+}
+function setMovProdLabel() {
+  const b = $('#movProd');
+  b.innerHTML = S.movProd
+    ? `<span><strong>${esc(S.movProd.nombre)}</strong> <span class="muted">· ${esc(S.movProd.sku)}</span></span>`
+    : '<span class="ph">Buscar y seleccionar producto…</span>';
+}
+function onMovTipoChange() {
+  const t = $('#movTipo').value;
+  $('#btnMovimiento').textContent = { entrada: 'Registrar entrada', salida: 'Registrar salida', ajuste: 'Registrar ajuste' }[t] || 'Registrar movimiento';
+  $('#movCantHint').textContent = t === 'ajuste'
+    ? 'Escribe un número positivo para sumar o negativo para restar (ej. −3).'
+    : 'Ingresa una cantidad mayor que cero.';
+  updateMovPreview();
+}
+function updateMovPreview() {
+  const box = $('#movPreview');
+  const p = S.movProd;
+  if (!p) { box.hidden = true; return; }
+  const tipo = $('#movTipo').value, c = numVal($('#movCant'));
+  const actual = Number(p.stock_actual) || 0;
+  let html = `Stock actual de <strong>${esc(p.nombre)}</strong>: <strong>${fmtNum(actual)}</strong>`;
+  let warn = false;
+  if (tipo && !Number.isNaN(c) && c !== 0) {
+    const nuevo = actual + (tipo === 'salida' ? -c : c);
+    warn = nuevo < 0;
+    html += ` → quedará en <strong>${fmtNum(nuevo)}</strong>${warn ? ' (stock insuficiente)' : ''}`;
+  }
+  box.innerHTML = html;
+  box.classList.toggle('warn', warn);
+  box.hidden = false;
+}
+
+async function submitMovimiento(e) {
+  e.preventDefault();
+  const f = e.target; clearErrs(f);
+  const el = { num: $('#movNumero'), prod: $('#movProd'), tipo: $('#movTipo'), cant: $('#movCant'), fecha: $('#movFecha') };
+  const errs = [];
+  const bad = (x, m) => { setErr(x, m); errs.push(x); };
+
+  const numero = el.num.value.trim(), tipo = el.tipo.value, cant = numVal(el.cant), fecha = el.fecha.value;
+  const p = S.movProd;
+  if (!numero) bad(el.num, 'Ingresa el número de movimiento.');
+  else if (S.movimientos.some(m => norm(m.numero) === norm(numero))) bad(el.num, 'Ya existe un movimiento con este número.');
+  if (!p) bad(el.prod, 'Selecciona un producto.');
+  if (!tipo) bad(el.tipo, 'Selecciona el tipo de movimiento.');
+  if (Number.isNaN(cant)) bad(el.cant, 'Ingresa la cantidad.');
+  else if (tipo === 'ajuste' && cant === 0) bad(el.cant, 'El ajuste no puede ser cero.');
+  else if ((tipo === 'entrada' || tipo === 'salida') && cant <= 0) bad(el.cant, 'La cantidad debe ser mayor que cero.');
+  if (!fecha) bad(el.fecha, 'Selecciona la fecha.');
+  if (p && tipo && !Number.isNaN(cant) && !errs.includes(el.cant)) {
+    const nuevo = (Number(p.stock_actual) || 0) + (tipo === 'salida' ? -cant : cant);
+    if (nuevo < 0) bad(el.cant, `Stock insuficiente: hay ${fmtNum(p.stock_actual)} disponibles.`);
+  }
+  if (errs.length) { errs[0].focus(); return; }
+
+  const actual = Number(p.stock_actual) || 0;
+  const nuevo = actual + (tipo === 'salida' ? -cant : cant);
+  const verbo = { entrada: 'Entrada de', salida: 'Salida de', ajuste: 'Ajuste de' }[tipo];
+  const ok = await confirmDialog({
+    title: `¿Registrar ${tipo === 'ajuste' ? 'este ajuste' : 'esta ' + tipo}?`,
+    html: `<p><strong>${esc(numero)}</strong>: ${verbo} <strong>${fmtNum(cant)}</strong> unidades de <strong>${esc(p.nombre)}</strong>.</p>
+           <ul><li>Stock actual: ${fmtNum(actual)}</li><li>Stock resultante: <strong>${fmtNum(nuevo)}</strong></li></ul>
+           <p style="margin-top:10px">Los movimientos no se pueden editar después de registrados.</p>`,
+    confirmText: { entrada: 'Registrar entrada', salida: 'Registrar salida', ajuste: 'Registrar ajuste' }[tipo]
+  });
+  if (!ok) return;
+
+  const btn = $('#btnMovimiento'); busy(btn, true);
+  try {
+    const { error } = await db.from('movimientos').insert({ numero, producto_id: p.id, tipo, cantidad: cant, fecha });
+    if (error) throw error;
+    toast(`Movimiento ${numero} registrado.`);
+    resetFormMovimiento();
+    await loadAll();
+  } catch (err) {
+    formMsg(f, 'err', friendlyError(err));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await loadAll();   // por si el stock cambió mientras tanto
+  } finally { busy(btn, false); }
+}
+
+/* =====================================================================
+   FORMULARIO: FACTURAS
+   ===================================================================== */
+function fillFacMovSelect() {
+  const sel = $('#facMov'), prev = sel.value;
+  const libres = S.movimientos.filter(m => !m.factura_id && !S.facByMov.has(m.id));
+  sel.innerHTML = '<option value="">Selecciona un movimiento…</option>' + libres.map(m => {
+    const p = S.prodById.get(m.producto_id);
+    return `<option value="${esc(m.id)}">${esc(m.numero)} · ${esc(TIPOS[m.tipo])} · ${p ? esc(p.nombre) : '—'} · ${fmtNum(Math.abs(m.cantidad))}</option>`;
+  }).join('');
+  sel.value = libres.some(m => m.id === prev) ? prev : '';
+  $('#facMovHint').textContent = !S.loaded ? '' : libres.length ? `${libres.length} movimiento${libres.length === 1 ? '' : 's'} sin factura.` : 'No hay movimientos pendientes de factura. Registra uno primero.';
+  onFacMovChange(false);
+}
+function onFacMovChange(prefill) {
+  const m = S.movById.get($('#facMov').value);
+  const info = $('#facMovInfo');
+  if (!m) {
+    $('#facTipo').value = ''; info.hidden = true; $('#facProvOpt').textContent = '';
+    return;
+  }
+  const p = S.prodById.get(m.producto_id);
+  $('#facTipo').value = TIPOS[m.tipo] || m.tipo;
+  $('#facProvOpt').textContent = m.tipo === 'entrada' ? '(obligatorio en entradas)' : '(opcional)';
+  const q = signedQty(m);
+  info.innerHTML = `<strong>${esc(m.numero)}</strong> · ${esc(TIPOS[m.tipo])} de <strong>${q.txt}</strong> ${p ? `unidades de <strong>${esc(p.nombre)}</strong>` : ''} · ${fmtDate(m.fecha)}`;
+  info.hidden = false;
+  if (prefill && p && p.proveedor_id && !$('#facProv').value.trim()) {
+    const pv = S.provById.get(p.proveedor_id);
+    if (pv) $('#facProv').value = pv.nombre;
+  }
+}
+function resetFormFactura() {
+  const f = $('#formFactura');
+  f.reset(); clearErrs(f);
+  $('#facFecha').value = todayStr();
+  fillFacMovSelect();
+}
+
+async function submitFactura(e) {
+  e.preventDefault();
+  const f = e.target; clearErrs(f);
+  const el = { num: $('#facNumero'), mov: $('#facMov'), fecha: $('#facFecha'), prov: $('#facProv'), doc: $('#facDoc') };
+  const errs = [];
+  const bad = (x, m) => { setErr(x, m); errs.push(x); };
+
+  const numero = el.num.value.trim(), fecha = el.fecha.value, provName = el.prov.value.trim();
+  const mov = S.movById.get(el.mov.value);
+  const file = el.doc.files[0] || null;
+  if (!numero) bad(el.num, 'Ingresa el número de factura.');
+  if (!mov) bad(el.mov, 'Selecciona el movimiento al que pertenece la factura.');
+  else if (S.facByMov.has(mov.id) || mov.factura_id) bad(el.mov, 'Ese movimiento ya tiene una factura.');
+  if (!fecha) bad(el.fecha, 'Selecciona la fecha de emisión.');
+  if (mov && mov.tipo === 'entrada' && !provName) bad(el.prov, 'Las facturas de entrada requieren proveedor.');
+  if (file) {
+    if (!FILE_TYPES[file.type]) bad(el.doc, 'Formato no válido. Usa PDF, JPG, PNG o WEBP.');
+    else if (file.size > MAX_FILE_MB * 1024 * 1024) bad(el.doc, `El archivo supera ${MAX_FILE_MB} MB.`);
+  }
+  if (!errs.length && S.facturas.some(x => norm(x.numero) === norm(numero) && x.tipo === mov.tipo && (x.proveedor_id || '') === ((findProveedor(provName) || {}).id || ''))) {
+    bad(el.num, 'Ya existe una factura con este número.');
+  }
+  if (errs.length) { errs[0].focus(); return; }
+
+  const p = S.prodById.get(mov.producto_id);
+  const provExist = findProveedor(provName);
+  const provNuevo = provName && !provExist;
+  const q = signedQty(mov);
+  const ok = await confirmDialog({
+    title: '¿Guardar esta factura?',
+    html: `<p>Factura <strong>${esc(numero)}</strong> (${esc(TIPOS[mov.tipo])}) del ${fmtDate(fecha)}, vinculada al movimiento <strong>${esc(mov.numero)}</strong>.</p>
+           <ul><li>Producto: ${p ? esc(p.nombre) : '—'} (${q.txt})</li>
+           <li>Proveedor: ${provName ? esc(provName) : 'sin proveedor'}${provNuevo ? ' (se creará como nuevo)' : ''}</li>
+           <li>Documento: ${file ? esc(file.name) : 'sin documento adjunto'}</li></ul>
+           <p style="margin-top:10px">Un movimiento solo puede tener una factura.</p>`,
+    confirmText: 'Guardar factura'
+  });
+  if (!ok) return;
+
+  const btn = $('#btnFactura'); busy(btn, true);
+  let uploaded = null;
+  try {
+    let provId = provExist ? provExist.id : null;
+    if (provNuevo) {
+      const { data, error } = await db.from('proveedores').insert({ nombre: provName }).select().single();
+      if (error) throw error;
+      provId = data.id;
+    }
+    if (file) {
+      const safe = numero.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 40) || 'factura';
+      const path = `${fecha.slice(0, 4)}/${safe}_${Date.now()}.${FILE_TYPES[file.type]}`;
+      const { error } = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      uploaded = path;
+    }
+    const { error } = await db.from('facturas').insert({
+      numero, tipo: mov.tipo, fecha, proveedor_id: provId, movimiento_id: mov.id, documento_path: uploaded
+    });
+    if (error) throw error;
+    toast(`Factura ${numero} guardada.`);
+    resetFormFactura();
+    await loadAll();
+  } catch (err) {
+    if (uploaded) { try { await db.storage.from(BUCKET).remove([uploaded]); } catch (_) { /* sin acción */ } }
+    formMsg(f, 'err', friendlyError(err));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } finally { busy(btn, false); }
+}
+
+/* =====================================================================
+   EVENTOS
+   ===================================================================== */
+function bindSeg(id, onChange) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button[data-v]');
+    if (!b) return;
+    $$('button', $(id)).forEach(x => x.setAttribute('aria-pressed', x === b));
+    onChange(b.dataset.v);
+  });
+}
+function setSeg(id, v) { $$('button', $(id)).forEach(x => x.setAttribute('aria-pressed', x.dataset.v === v)); }
+function afterSearch(wrap, input) { input.blur(); $(wrap).scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
+function bind() {
+  /* Acceso */
+  $('#tabLogin').onclick = () => selectAuthTab('login');
+  $('#tabRegister').onclick = () => selectAuthTab('register');
+
+  $('#formLogin').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#loginEmail').value.trim(), password = $('#loginPass').value;
+    authMsg();
+    if (!email || !password) { authMsg('err', 'Ingresa tu correo y tu contraseña.'); return; }
+    const btn = $('#btnLogin'); busy(btn, true);
+    try {
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      await enterApp(data.user);
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
+
+  $('#formRegister').addEventListener('submit', async e => {
+    e.preventDefault();
+    const nombre = $('#regName').value.trim(), email = $('#regEmail').value.trim();
+    const p1 = $('#regPass').value, p2 = $('#regPass2').value;
+    authMsg();
+    if (!nombre || !email || !p1) { authMsg('err', 'Completa todos los campos.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(email)) { authMsg('err', 'Ingresa un correo electrónico válido.'); return; }
+    if (p1.length < 8) { authMsg('err', 'La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (p1 !== p2) { authMsg('err', 'Las contraseñas no coinciden.'); return; }
+    const btn = $('#btnRegister'); busy(btn, true);
+    try {
+      const { data, error } = await db.auth.signUp({ email, password: p1, options: { data: { nombre_completo: nombre } } });
+      if (error) throw error;
+      if (data.session) { await enterApp(data.user); }
+      else {
+        selectAuthTab('login');
+        $('#loginEmail').value = email;
+        authMsg('ok', 'Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.');
+      }
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
+
+  $('#btnLogout').onclick = async () => {
+    await db.auth.signOut();
+    resetState(); showAuth(); selectAuthTab('login');
+  };
+
+  /* Navegación */
+  $$('.topnav button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+  $$('.side-btn').forEach(b => b.addEventListener('click', () => showSection(b.dataset.sec)));
+  $('#segCons').addEventListener('click', e => { const b = e.target.closest('button[data-cons]'); if (b) showCons(b.dataset.cons); });
+  $$('[data-refresh]').forEach(b => b.addEventListener('click', async () => {
+    busy(b, true); await loadAll(); busy(b, false); toast('Datos actualizados.');
+  }));
+
+  /* Formularios */
+  $('#formProducto').addEventListener('submit', submitProducto);
+  $('#formMovimiento').addEventListener('submit', submitMovimiento);
+  $('#formFactura').addEventListener('submit', submitFactura);
+  $('#formProducto').addEventListener('reset', () => setTimeout(() => { clearErrs($('#formProducto')); $('#prodStock').value = '0'; }, 0));
+  $('#formMovimiento').addEventListener('reset', e => { e.preventDefault(); resetFormMovimiento(); });
+  $('#formFactura').addEventListener('reset', e => { e.preventDefault(); resetFormFactura(); });
+
+  $('#movNumero').addEventListener('input', e => { e.target.dataset.touched = '1'; });
+  $('#movProd').addEventListener('click', async () => {
+    const p = await pickProduct();
+    if (p) { S.movProd = p; setMovProdLabel(); updateMovPreview(); const w = $('#movProd').closest('.field'); w.classList.remove('invalid'); const er = $('.err', w); if (er) er.remove(); }
+  });
+  $('#movTipo').addEventListener('change', onMovTipoChange);
+  $('#movCant').addEventListener('input', updateMovPreview);
+  $('#facMov').addEventListener('change', () => onFacMovChange(true));
+
+  /* Consulta: productos */
+  $('#qProd').addEventListener('input', e => { F.prod.q = e.target.value; renderProductos(); });
+  bindSeg('#segProdDisp', v => { F.prod.disp = v; renderProductos(); });
+  $('#selCat').addEventListener('change', e => { F.prod.cat = e.target.value; renderProductos(); });
+  $('#clearProd').onclick = () => {
+    F.prod = { q: '', disp: 'all', cat: '' };
+    $('#qProd').value = ''; $('#selCat').value = ''; setSeg('#segProdDisp', 'all'); renderProductos(); $('#qProd').focus();
+  };
+  $('#formQProd').addEventListener('submit', e => { e.preventDefault(); renderProductos(); afterSearch('#wrapProd', $('#qProd')); });
+
+  /* Consulta: movimientos */
+  $('#qMov').addEventListener('input', e => { F.mov.q = e.target.value; renderMovimientos(); });
+  bindSeg('#segMovTipo', v => { F.mov.tipo = v; renderMovimientos(); });
+  $('#clearMov').onclick = () => {
+    F.mov = { q: '', tipo: 'all' }; $('#qMov').value = ''; setSeg('#segMovTipo', 'all'); renderMovimientos(); $('#qMov').focus();
+  };
+  $('#formQMov').addEventListener('submit', e => { e.preventDefault(); renderMovimientos(); afterSearch('#wrapMov', $('#qMov')); });
+
+  /* Consulta: facturas */
+  $('#qFac').addEventListener('input', e => { F.fac.q = e.target.value; renderFacturas(); });
+  $('#selFacProv').addEventListener('change', e => { F.fac.prov = e.target.value; renderFacturas(); });
+  $('#facDesde').addEventListener('change', e => { F.fac.desde = e.target.value; renderFacturas(); });
+  $('#facHasta').addEventListener('change', e => { F.fac.hasta = e.target.value; renderFacturas(); });
+  const setFacProd = p => {
+    S.facProdFilter = p;
+    $('#btnFacProd').innerHTML = p ? `<span><strong>${esc(p.nombre)}</strong></span>` : '<span class="ph">Todos los productos</span>';
+    $('#btnFacProdClear').hidden = !p;
+    renderFacturas();
+  };
+  $('#btnFacProd').addEventListener('click', async () => { const p = await pickProduct(); if (p) setFacProd(p); });
+  $('#btnFacProdClear').addEventListener('click', () => setFacProd(null));
+  $('#clearFac').onclick = () => {
+    F.fac = { q: '', prov: '', desde: '', hasta: '' };
+    $('#qFac').value = ''; $('#selFacProv').value = ''; $('#facDesde').value = ''; $('#facHasta').value = '';
+    setFacProd(null); $('#qFac').focus();
+  };
+  $('#formQFac').addEventListener('submit', e => { e.preventDefault(); renderFacturas(); afterSearch('#wrapFac', $('#qFac')); });
+  $('#tbFac').addEventListener('click', async e => {
+    const b = e.target.closest('[data-doc]');
+    if (b) { busy(b, true); await verDocumento(b.dataset.doc); busy(b, false); }
+  });
+}
+
+/* =====================================================================
+   INICIO
+   ===================================================================== */
+async function init() {
+  bind();
+  if (!db) {
+    showAuth();
+    const w = $('#cfgWarn');
+    w.hidden = false;
+    w.textContent = !configured
+      ? 'Falta configurar Supabase: abre este archivo y reemplaza SUPABASE_URL y SUPABASE_ANON_KEY al inicio del script.'
+      : 'No se pudo cargar la librería de Supabase. Revisa tu conexión a internet y recarga la página.';
+    $('#btnLogin').disabled = true; $('#btnRegister').disabled = true;
+    return;
+  }
+  db.auth.onAuthStateChange(event => {
+    if (event === 'SIGNED_OUT') { resetState(); showAuth(); }
+  });
+  const { data } = await db.auth.getSession();
+  if (data && data.session) await enterApp(data.session.user);
+  else showAuth();
+}
+init();
+})();
+</script>
+</body>
+</html>
