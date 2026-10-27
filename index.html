@@ -100,8 +100,6 @@ fieldset{border:0; padding:0; margin:0; min-width:0}
   color:var(--ink); background:#fff; border:1px solid var(--line-strong);
   border-radius:var(--radius); transition:border-color .12s, box-shadow .12s;
 }
-.link-btn{background:none; border:0; padding:0; color:var(--blue); font-size:13.5px; font-weight:600; cursor:pointer; text-align:left}
-.link-btn:hover{text-decoration:underline}
 @media (min-width:821px){
   .input, select.input, textarea.input, .pick-btn{font-size:14.5px}
 }
@@ -444,22 +442,6 @@ dialog form{margin:0}
 <!-- =====================================================================
      PANTALLA DE ACCESO
      ===================================================================== -->
-<section id="screenAuth" class="auth" hidden>
-  <aside class="auth-aside">
-    <div class="brand">
-      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
-      <span>Inventario</span>
-    </div>
-    <div>
-      <h2>Control de inventario claro y confiable.</h2>
-      <ul>
-        <li>Encuentra cualquier producto en segundos.</li>
-        <li>Registra entradas, salidas y ajustes con trazabilidad.</li>
-        <li>Facturas y documentos siempre vinculados a su movimiento.</li>
-      </ul>
-    </div>
-    <small>Acceso solo para personal autorizado.</small>
-  </aside>
 
   <main class="auth-main">
     <div class="auth-card">
@@ -485,31 +467,8 @@ dialog form{margin:0}
           <input class="input" id="loginPass" type="password" autocomplete="current-password" placeholder="Tu contraseña">
         </div>
         <button class="btn btn-primary" type="submit" id="btnLogin">Iniciar sesión</button>
-         <button type="button" class="link-btn" id="btnForgot">¿Olvidaste tu contraseña?</button>
-      </form>
-             <form id="formForgot" novalidate hidden>
-        <p class="auth-note">Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña.</p>
-        <div class="field">
-          <label for="forgotEmail">Correo electrónico</label>
-          <input class="input" id="forgotEmail" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.com">
-        </div>
-        <button class="btn btn-primary" type="submit" id="btnForgotSend">Enviar enlace</button>
-        <button type="button" class="link-btn" id="btnForgotBack">Volver a iniciar sesión</button>
       </form>
 
-      <form id="formReset" novalidate hidden>
-        <p class="auth-note">Elige tu nueva contraseña.</p>
-        <div class="field">
-          <label for="newPass">Nueva contraseña</label>
-          <input class="input" id="newPass" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
-        </div>
-        <div class="field">
-          <label for="newPass2">Confirmar contraseña</label>
-          <input class="input" id="newPass2" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
-        </div>
-        <button class="btn btn-primary" type="submit" id="btnReset">Guardar contraseña</button>
-      </form>
-       
       <form id="formRegister" novalidate hidden>
         <div class="field">
           <label for="regName">Nombre completo</label>
@@ -1113,14 +1072,11 @@ function showAuth() {
   $('#loginPass').value = ''; $('#regPass').value = ''; $('#regPass2').value = '';
 }
 function selectAuthTab(which) {
-  const login = which === 'login', reg = which === 'register';
+  const login = which === 'login';
   $('#tabLogin').setAttribute('aria-selected', login);
-  $('#tabRegister').setAttribute('aria-selected', reg);
+  $('#tabRegister').setAttribute('aria-selected', !login);
   $('#formLogin').hidden = !login;
-  $('#formRegister').hidden = !reg;
-  $('#formForgot').hidden = which !== 'forgot';
-  $('#formReset').hidden = which !== 'reset';
-  $('.tabs').hidden = which === 'forgot' || which === 'reset';
+  $('#formRegister').hidden = login;
   authMsg();
 }
 
@@ -1752,39 +1708,7 @@ function bind() {
     } catch (err) { authMsg('err', authError(err)); }
     finally { busy(btn, false); }
   });
-     $('#btnForgot').onclick = () => { $('#forgotEmail').value = $('#loginEmail').value; selectAuthTab('forgot'); };
-  $('#btnForgotBack').onclick = () => selectAuthTab('login');
 
-  $('#formForgot').addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = $('#forgotEmail').value.trim();
-    authMsg();
-    if (!/^\S+@\S+\.\S+$/.test(email)) { authMsg('err', 'Ingresa un correo electrónico válido.'); return; }
-    const btn = $('#btnForgotSend'); busy(btn, true);
-    try {
-      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-      if (error) throw error;
-      authMsg('ok', 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.');
-    } catch (err) { authMsg('err', authError(err)); }
-    finally { busy(btn, false); }
-  });
-
-  $('#formReset').addEventListener('submit', async e => {
-    e.preventDefault();
-    const p1 = $('#newPass').value, p2 = $('#newPass2').value;
-    authMsg();
-    if (p1.length < 8) { authMsg('err', 'La contraseña debe tener al menos 8 caracteres.'); return; }
-    if (p1 !== p2) { authMsg('err', 'Las contraseñas no coinciden.'); return; }
-    const btn = $('#btnReset'); busy(btn, true);
-    try {
-      const { data, error } = await db.auth.updateUser({ password: p1 });
-      if (error) throw error;
-      history.replaceState(null, '', location.pathname);
-      $('#newPass').value = ''; $('#newPass2').value = '';
-      await enterApp(data.user);
-    } catch (err) { authMsg('err', authError(err)); }
-    finally { busy(btn, false); }
-  });
   $('#btnLogout').onclick = async () => {
     await db.auth.signOut();
     resetState(); showAuth(); selectAuthTab('login');
