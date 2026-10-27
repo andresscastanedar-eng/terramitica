@@ -100,6 +100,8 @@ fieldset{border:0; padding:0; margin:0; min-width:0}
   color:var(--ink); background:#fff; border:1px solid var(--line-strong);
   border-radius:var(--radius); transition:border-color .12s, box-shadow .12s;
 }
+.link-btn{background:none; border:0; padding:0; color:var(--blue); font-size:13.5px; font-weight:600; cursor:pointer; text-align:left}
+.link-btn:hover{text-decoration:underline}
 @media (min-width:821px){
   .input, select.input, textarea.input, .pick-btn{font-size:14.5px}
 }
@@ -483,8 +485,31 @@ dialog form{margin:0}
           <input class="input" id="loginPass" type="password" autocomplete="current-password" placeholder="Tu contraseña">
         </div>
         <button class="btn btn-primary" type="submit" id="btnLogin">Iniciar sesión</button>
+         <button type="button" class="link-btn" id="btnForgot">¿Olvidaste tu contraseña?</button>
+      </form>
+             <form id="formForgot" novalidate hidden>
+        <p class="auth-note">Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña.</p>
+        <div class="field">
+          <label for="forgotEmail">Correo electrónico</label>
+          <input class="input" id="forgotEmail" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.com">
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnForgotSend">Enviar enlace</button>
+        <button type="button" class="link-btn" id="btnForgotBack">Volver a iniciar sesión</button>
       </form>
 
+      <form id="formReset" novalidate hidden>
+        <p class="auth-note">Elige tu nueva contraseña.</p>
+        <div class="field">
+          <label for="newPass">Nueva contraseña</label>
+          <input class="input" id="newPass" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+        </div>
+        <div class="field">
+          <label for="newPass2">Confirmar contraseña</label>
+          <input class="input" id="newPass2" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnReset">Guardar contraseña</button>
+      </form>
+       
       <form id="formRegister" novalidate hidden>
         <div class="field">
           <label for="regName">Nombre completo</label>
@@ -1088,11 +1113,14 @@ function showAuth() {
   $('#loginPass').value = ''; $('#regPass').value = ''; $('#regPass2').value = '';
 }
 function selectAuthTab(which) {
-  const login = which === 'login';
+  const login = which === 'login', reg = which === 'register';
   $('#tabLogin').setAttribute('aria-selected', login);
-  $('#tabRegister').setAttribute('aria-selected', !login);
+  $('#tabRegister').setAttribute('aria-selected', reg);
   $('#formLogin').hidden = !login;
-  $('#formRegister').hidden = login;
+  $('#formRegister').hidden = !reg;
+  $('#formForgot').hidden = which !== 'forgot';
+  $('#formReset').hidden = which !== 'reset';
+  $('.tabs').hidden = which === 'forgot' || which === 'reset';
   authMsg();
 }
 
