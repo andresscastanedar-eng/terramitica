@@ -183,6 +183,8 @@ input[type=file].input{padding:8px 10px; font-size:13.5px}
 .auth-card form{display:grid; gap:16px}
 .auth-card .field{grid-column:auto}
 .auth-note{font-size:12.5px; color:var(--muted); background:#EEF2F8; padding:10px 12px; border-radius:var(--radius)}
+.link-btn{background:none; border:0; padding:0; color:var(--blue); font-size:13.5px; font-weight:600; cursor:pointer; text-align:left; font-family:inherit}
+.link-btn:hover{text-decoration:underline}
 
 /* =====================================================================
    BARRA SUPERIOR
@@ -442,6 +444,22 @@ dialog form{margin:0}
 <!-- =====================================================================
      PANTALLA DE ACCESO
      ===================================================================== -->
+<section id="screenAuth" class="auth" hidden>
+  <aside class="auth-aside">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
+      <span>Inventario</span>
+    </div>
+    <div>
+      <h2>Controla tu inventario en un solo lugar</h2>
+      <ul>
+        <li>Productos, movimientos y facturas</li>
+        <li>Stock actualizado en tiempo real</li>
+        <li>Acceso según tu rol</li>
+      </ul>
+    </div>
+    <small>Sistema de inventario</small>
+  </aside>
 
   <main class="auth-main">
     <div class="auth-card">
@@ -466,6 +484,7 @@ dialog form{margin:0}
           <label for="loginPass">Contraseña</label>
           <input class="input" id="loginPass" type="password" autocomplete="current-password" placeholder="Tu contraseña">
         </div>
+        <button type="button" class="link-btn" id="btnForgot">¿Olvidaste tu contraseña?</button>
         <button class="btn btn-primary" type="submit" id="btnLogin">Iniciar sesión</button>
       </form>
 
@@ -488,6 +507,29 @@ dialog form{margin:0}
         </div>
         <p class="auth-note">Las cuentas nuevas tienen acceso de solo lectura hasta que un administrador les asigne un rol.</p>
         <button class="btn btn-primary" type="submit" id="btnRegister">Crear cuenta</button>
+      </form>
+
+      <form id="formForgot" novalidate hidden>
+        <p class="auth-note">Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña.</p>
+        <div class="field">
+          <label for="forgotEmail">Correo electrónico</label>
+          <input class="input" id="forgotEmail" type="email" autocomplete="email" inputmode="email" placeholder="nombre@empresa.com">
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnForgotSend">Enviar enlace</button>
+        <button type="button" class="link-btn" id="btnForgotBack">Volver a iniciar sesión</button>
+      </form>
+
+      <form id="formReset" novalidate hidden>
+        <p class="auth-note">Elige tu nueva contraseña.</p>
+        <div class="field">
+          <label for="newPass">Nueva contraseña</label>
+          <input class="input" id="newPass" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+        </div>
+        <div class="field">
+          <label for="newPass2">Confirmar contraseña</label>
+          <input class="input" id="newPass2" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnReset">Guardar contraseña</button>
       </form>
     </div>
   </main>
@@ -1070,13 +1112,17 @@ function showAuth() {
   $('#app').hidden = true;
   $('#screenAuth').hidden = false;
   $('#loginPass').value = ''; $('#regPass').value = ''; $('#regPass2').value = '';
+  $('#newPass').value = ''; $('#newPass2').value = '';
 }
 function selectAuthTab(which) {
-  const login = which === 'login';
+  const login = which === 'login', reg = which === 'register';
   $('#tabLogin').setAttribute('aria-selected', login);
-  $('#tabRegister').setAttribute('aria-selected', !login);
+  $('#tabRegister').setAttribute('aria-selected', reg);
   $('#formLogin').hidden = !login;
-  $('#formRegister').hidden = login;
+  $('#formRegister').hidden = !reg;
+  $('#formForgot').hidden = which !== 'forgot';
+  $('#formReset').hidden = which !== 'reset';
+  $('.tabs').hidden = which === 'forgot' || which === 'reset';
   authMsg();
 }
 
@@ -1709,6 +1755,40 @@ function bind() {
     finally { busy(btn, false); }
   });
 
+  $('#btnForgot').onclick = () => { $('#forgotEmail').value = $('#loginEmail').value; selectAuthTab('forgot'); };
+  $('#btnForgotBack').onclick = () => selectAuthTab('login');
+
+  $('#formForgot').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#forgotEmail').value.trim();
+    authMsg();
+    if (!/^\S+@\S+\.\S+$/.test(email)) { authMsg('err', 'Ingresa un correo electrónico válido.'); return; }
+    const btn = $('#btnForgotSend'); busy(btn, true);
+    try {
+      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+      authMsg('ok', 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.');
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
+
+  $('#formReset').addEventListener('submit', async e => {
+    e.preventDefault();
+    const p1 = $('#newPass').value, p2 = $('#newPass2').value;
+    authMsg();
+    if (p1.length < 8) { authMsg('err', 'La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (p1 !== p2) { authMsg('err', 'Las contraseñas no coinciden.'); return; }
+    const btn = $('#btnReset'); busy(btn, true);
+    try {
+      const { data, error } = await db.auth.updateUser({ password: p1 });
+      if (error) throw error;
+      history.replaceState(null, '', location.pathname);
+      $('#newPass').value = ''; $('#newPass2').value = '';
+      await enterApp(data.user);
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
+
   $('#btnLogout').onclick = async () => {
     await db.auth.signOut();
     resetState(); showAuth(); selectAuthTab('login');
@@ -1797,9 +1877,12 @@ async function init() {
     $('#btnLogin').disabled = true; $('#btnRegister').disabled = true;
     return;
   }
+  const recovering = /type=recovery/.test(location.hash);
   db.auth.onAuthStateChange(event => {
     if (event === 'SIGNED_OUT') { resetState(); showAuth(); }
+    if (event === 'PASSWORD_RECOVERY') { showAuth(); selectAuthTab('reset'); }
   });
+  if (recovering) { showAuth(); selectAuthTab('reset'); return; }
   const { data } = await db.auth.getSession();
   if (data && data.session) await enterApp(data.session.user);
   else showAuth();
