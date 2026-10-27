@@ -1752,7 +1752,39 @@ function bind() {
     } catch (err) { authMsg('err', authError(err)); }
     finally { busy(btn, false); }
   });
+     $('#btnForgot').onclick = () => { $('#forgotEmail').value = $('#loginEmail').value; selectAuthTab('forgot'); };
+  $('#btnForgotBack').onclick = () => selectAuthTab('login');
 
+  $('#formForgot').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#forgotEmail').value.trim();
+    authMsg();
+    if (!/^\S+@\S+\.\S+$/.test(email)) { authMsg('err', 'Ingresa un correo electrónico válido.'); return; }
+    const btn = $('#btnForgotSend'); busy(btn, true);
+    try {
+      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+      authMsg('ok', 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.');
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
+
+  $('#formReset').addEventListener('submit', async e => {
+    e.preventDefault();
+    const p1 = $('#newPass').value, p2 = $('#newPass2').value;
+    authMsg();
+    if (p1.length < 8) { authMsg('err', 'La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (p1 !== p2) { authMsg('err', 'Las contraseñas no coinciden.'); return; }
+    const btn = $('#btnReset'); busy(btn, true);
+    try {
+      const { data, error } = await db.auth.updateUser({ password: p1 });
+      if (error) throw error;
+      history.replaceState(null, '', location.pathname);
+      $('#newPass').value = ''; $('#newPass2').value = '';
+      await enterApp(data.user);
+    } catch (err) { authMsg('err', authError(err)); }
+    finally { busy(btn, false); }
+  });
   $('#btnLogout').onclick = async () => {
     await db.auth.signOut();
     resetState(); showAuth(); selectAuthTab('login');
