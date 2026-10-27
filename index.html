@@ -160,11 +160,7 @@ input[type=file].input{padding:8px 10px; font-size:13.5px}
   color:#fff; padding:48px; display:flex; flex-direction:column; justify-content:space-between;
 }
 .brand{display:flex; align-items:center; gap:12px; font-weight:700; font-size:17px; letter-spacing:-.01em}
-.brand-mark{
-  width:36px; height:36px; border-radius:9px; background:var(--blue);
-  display:grid; place-items:center; flex:none;
-}
-.brand-mark svg{width:20px; height:20px; stroke:#fff}
+.brand-mark{height:38px; width:auto; display:block; flex:none}
 .auth-aside h2{color:#fff; font-size:28px; font-weight:700; letter-spacing:-.02em; max-width:420px; line-height:1.2}
 .auth-aside ul{list-style:none; padding:0; margin:24px 0 0; display:grid; gap:12px; color:#C9D6EC; font-size:14.5px}
 .auth-aside li{display:flex; gap:10px; align-items:flex-start}
@@ -195,7 +191,7 @@ input[type=file].input{padding:8px 10px; font-size:13.5px}
   box-shadow:0 1px 0 rgba(255,255,255,.06), 0 2px 8px rgba(10,24,48,.25);
 }
 .topbar .brand{font-size:15px}
-.topbar .brand-mark{width:30px; height:30px}
+.topbar .brand-mark{height:30px}
 .topbar .brand-mark svg{width:17px; height:17px}
 .topnav{display:flex; align-items:stretch; height:100%; gap:4px}
 .topnav button{
@@ -447,7 +443,7 @@ dialog form{margin:0}
 <section id="screenAuth" class="auth" hidden>
   <aside class="auth-aside">
     <div class="brand">
-      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
+      <img class="brand-mark" src="logo.png" alt="Terramítica">
       <span>Terramítica</span>
     </div>
     <div>
@@ -541,7 +537,7 @@ dialog form{margin:0}
 <div id="app" hidden>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.3 7L12 12l8.7-5M12 22V12"/></svg></span>
+      <img class="brand-mark" src="logo.png" alt="Terramítica">
       <span class="brand-text">Inventario</span>
     </div>
     <nav class="topnav" aria-label="Secciones principales">
